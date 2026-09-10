@@ -1,0 +1,13 @@
+"""Health endpoint — one HTTP operation per function (fastapi skill)."""
+
+from fastapi import APIRouter
+
+from app.core.config import settings
+from app.schemas.health import HealthResponse
+
+router = APIRouter(tags=["health"])
+
+
+@router.get("/health", response_model=HealthResponse)
+def get_health() -> HealthResponse:
+    return HealthResponse(status="ok", app=settings.app_name, version=settings.app_version)
