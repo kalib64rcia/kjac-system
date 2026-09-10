@@ -16,22 +16,27 @@ This directory contains comprehensive documentation for the KJAC system covering
 ## ✅ Completed Documentation
 
 ### Core Documents
+
 - ✅ **[AGENTS.md](../AGENTS.md)** - Master navigation guide for all system roles and documentation
 - ✅ **[PRD.md](PRD.md)** - Product Requirements Document (functional & non-functional requirements)
 - ✅ **[BUSINESS_RULES.md](BUSINESS_RULES.md)** - Business policies, cancellation/refund rules, operational guidelines
 
 ### Database Documentation
+
 - ✅ **[database/DATABASE.md](database/DATABASE.md)** - Database architecture, ERD, relationships, maintenance
 - ✅ **[database/DATABASE_TABLES.md](database/DATABASE_TABLES.md)** - Complete table schemas with RLS policies
 - ✅ **[database/DATABASE_RULES.md](database/DATABASE_RULES.md)** - Column ordering standards, naming conventions, best practices
 
 ### Design System
+
 - ✅ **[design/DESIGN.md](design/DESIGN.md)** - Complete UI/UX specifications (colors, typography, components, responsive design)
 
 ### API Documentation
+
 - ✅ **[api/API.md](api/API.md)** - Complete FastAPI endpoint specifications with authentication, bookings, payments, services, PSGC addresses, notifications, and admin operations
 
 ### Workflow Documentation (100% Complete)
+
 - ✅ **[flows/FLOW_AUTH.md](flows/FLOW_AUTH.md)** - Complete authentication flows (admin 2FA, customer registration, technician accounts, password reset, session management)
 - ✅ **[flows/FLOW_BOOKING.md](flows/FLOW_BOOKING.md)** - Complete booking lifecycle (guest/customer booking, payment upload, expiration, status tracking, cancellation, refund, rescheduling, rating)
 - ✅ **[flows/FLOW_ADMIN.md](flows/FLOW_ADMIN.md)** - Admin panel workflows (dashboard, CRUD operations, dispatch, payment verification, refund processing, reports, system settings, audit logs, archive, chat)
@@ -44,28 +49,32 @@ This directory contains comprehensive documentation for the KJAC system covering
 
 ---
 
-
-
 ---
 
 ## 📖 How to Use This Documentation
 
 ### For Project Managers
+
 Start with: **PRD.md** → **BUSINESS_RULES.md** → **AGENTS.md**
 
 ### For Backend Developers
+
 Start with: **database/** folder → **api/API.md** (when created) → **flows/** folder
 
 ### For Frontend Developers (Web)
+
 Start with: **design/DESIGN.md** → **PRD.md** → **flows/FLOW_ADMIN.md** and **flows/FLOW_GUEST.md**
 
 ### For Mobile Developers
+
 Start with: **design/DESIGN.md** → **PRD.md** → **flows/FLOW_CUSTOMER.md** and **flows/FLOW_TECHNICIAN.md**
 
 ### For QA/Testers
+
 Start with: **PRD.md** → **BUSINESS_RULES.md** → **flows/** folder (all workflows)
 
 ### For Designers
+
 Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 
 ---
@@ -73,6 +82,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 🔗 Quick Links
 
 ### Business Information
+
 - **Name:** Klein & Justin Airconditioning (KJAC)
 - **Address:** 060 Sitio Narra, Brgy. Labuin, Sta. Cruz, Laguna, Philippines
 - **Phone:** 0926-633-3129
@@ -81,9 +91,10 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - **Timezone:** Asia/Manila (GMT+8)
 
 ### Technical Stack
+
 - **Backend:** FastAPI (Python 3.11+) with SQLAlchemy
 - **Database:** Supabase (PostgreSQL 15)
-- **Web Frontend:** React 18+ TypeScript, Tailwind CSS, Lucide Icons
+- **Web Frontend:** React 19+ TypeScript, Tailwind CSS, Lucide Icons
 - **Mobile:** Flutter (iOS & Android)
 - **Auth:** Supabase Auth + JWT
 - **Storage:** Supabase Storage
@@ -92,6 +103,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - **Address API:** PSGC API (Philippine Standard Geographic Code)
 
 ### Key Features
+
 1. **Multi-role system** (Admin, Customer, Technician, Guest)
 2. **Booking & Scheduling** with calendar availability
 3. **Payment verification** (GCash manual verification, future: Paymongo)
@@ -108,6 +120,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 🎯 Development Phases
 
 ### Phase 1: MVP (3 months)
+
 - ✅ Core authentication (all roles)
 - ✅ Booking creation & management
 - ✅ Payment upload & verification
@@ -120,6 +133,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - ✅ Archive & audit logs
 
 ### Phase 2: Enhancements (2 months)
+
 - ⏳ Payroll system
 - ⏳ Advanced analytics & reports
 - ⏳ Chat/messaging system
@@ -129,6 +143,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - ⏳ Enhanced dispatch dashboard
 
 ### Phase 3: Future
+
 - 🔮 Paymongo payment gateway integration
 - 🔮 Customer loyalty program
 - 🔮 Multi-branch management
@@ -141,6 +156,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 📝 Documentation Standards
 
 ### Markdown Conventions
+
 - Use ATX-style headers (`#`, `##`, `###`)
 - Include table of contents for long documents
 - Use code fences with language identifiers
@@ -148,12 +164,14 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - Keep line length < 120 characters (when possible)
 
 ### Code Examples
+
 - Provide complete, working examples
 - Include necessary imports/dependencies
 - Add inline comments for complex logic
 - Show both correct (✅) and incorrect (❌) patterns
 
 ### Diagrams
+
 - Use Mermaid for flowcharts and diagrams
 - ASCII art for simple visualizations
 - External tools (draw.io, Figma) for complex designs
@@ -176,11 +194,13 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 📞 Documentation Contacts
 
 **Questions about documentation?**
+
 - **Project Manager:** [Name/Email]
 - **Lead Developer:** [Name/Email]
 - **Technical Writer:** [Name/Email]
 
 **Report documentation issues:**
+
 - Create an issue in the project repository
 - Tag with `documentation` label
 - Include document name and section
@@ -190,6 +210,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 📊 Documentation Metrics
 
 ### Completeness
+
 - **Core Documents:** 7/7 (100%) ✅
 - **Database Docs:** 3/3 (100%) ✅
 - **Design Docs:** 1/1 (100%) ✅
@@ -199,6 +220,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 **Overall Progress:** 21/21 (100%) ✅
 
 ### Last Review Dates
+
 - Core Documents: September 10, 2026
 - Database Docs: September 10, 2026
 - Design Docs: September 10, 2026
@@ -223,6 +245,7 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 ## 📚 Additional Resources
 
 ### External Documentation
+
 - [Supabase Docs](https://supabase.com/docs)
 - [FastAPI Docs](https://fastapi.tiangolo.com/)
 - [React Docs](https://react.dev/)
@@ -231,11 +254,13 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 - [Lucide Icons](https://lucide.dev/)
 
 ### Design Resources
+
 - [iOS Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)
 - [Material Design](https://m3.material.io/)
 - [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
 
 ### Philippine Standards
+
 - [PSGC API](https://psgc.cloud/)
 - [Data Privacy Act](https://www.privacy.gov.ph/)
 - [Philippine Business Regulations](https://www.dti.gov.ph/)
@@ -248,4 +273,4 @@ Start with: **design/DESIGN.md** → **PRD.md** → **BUSINESS_RULES.md**
 
 ---
 
-*This documentation is a living resource. Keep it updated as the project evolves.*
+_This documentation is a living resource. Keep it updated as the project evolves._

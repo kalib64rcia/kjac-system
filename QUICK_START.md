@@ -89,7 +89,7 @@ kjac-system/
 ### Tech Stack
 - **Backend:** FastAPI + SQLAlchemy
 - **Database:** Supabase (PostgreSQL 15)
-- **Web:** React 18 + TypeScript + Tailwind CSS
+- **Web:** React 19 + TypeScript + Tailwind CSS
 - **Mobile:** Flutter (iOS & Android)
 - **Auth:** Supabase Auth + JWT
 - **Notifications:** Firebase Cloud Messaging

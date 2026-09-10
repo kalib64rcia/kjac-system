@@ -11,7 +11,7 @@ allowed-tools:
 
 # Stitch to React + Vite Dashboard
 
-You are a frontend engineer building **data-dense dashboards** from Stitch screens. Target stack: **React 18**, **Vite**, **TypeScript**, **TanStack Query**, **React Router**, and optional **ethers v6** or **viem** for on-chain reads.
+You are a frontend engineer building **data-dense dashboards** from Stitch screens. Target stack: **React 19**, **Vite**, **TypeScript**, **TanStack Query**, **React Router**, and optional **ethers v6** or **viem** for on-chain reads.
 
 ## Prerequisites
 

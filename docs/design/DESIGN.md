@@ -201,7 +201,6 @@ font-family: 'JetBrains Mono', 'Courier New', monospace;
 - Phone numbers, email addresses (in technical contexts)
 - Statistics and metrics (revenue, counts)
 - Date/time displays (when precision matters)
-- Admin sidebar navigation
 - Data tables (for alignment)
 
 ---

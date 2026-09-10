@@ -881,7 +881,7 @@ All systems communicate through a secure FastAPI backend with Supabase for datab
 - **Environment:** .env files for configuration
 
 ### Frontend (Web)
-- **Framework:** React 18+ with TypeScript
+- **Framework:** React 19+ with TypeScript
 - **Styling:** Tailwind CSS
 - **Icons:** Lucide Icons
 - **Routing:** React Router (with routes, not single page)
