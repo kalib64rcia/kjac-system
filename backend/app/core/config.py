@@ -3,6 +3,7 @@
 All secrets come from environment — never commit .env (R4).
 """
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +17,16 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/kjac_db"
 
     # Supabase Auth — sole auth source (CONTRACTS.md C1). No local password storage.
+    # New dashboard names accepted first; legacy anon/service_role names still work.
     supabase_url: str = "https://PROJECT.supabase.co"
-    supabase_anon_key: str = "change-me"
+    supabase_publishable_key: str = Field(
+        default="change-me",
+        validation_alias=AliasChoices("SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY"),
+    )
+    supabase_secret_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_KEY"),
+    )
     supabase_jwks_url: str = "https://PROJECT.supabase.co/auth/v1/.well-known/jwks.json"
     supabase_jwt_audience: str = "authenticated"
 
@@ -47,10 +56,9 @@ class Settings(BaseSettings):
     # Web booking CAPTCHA. Empty = dev bypass (accept + warn, never in prod).
     turnstile_secret: str = ""
 
-    # Uploads: local dir (dev) or supabase storage (prod, needs service key).
+    # Uploads: local dir (dev) or supabase storage (prod, needs secret key).
     storage_backend: str = "local"
     storage_dir: str = "storage"
-    supabase_service_key: str = ""
     max_upload_mb: int = 3
 
     # PSGC address proxy (Phase 3): upstream + TTL cache + DB upsert.

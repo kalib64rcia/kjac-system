@@ -100,9 +100,9 @@ class StorageService:
     def _save_supabase(self, key: str, payload: bytes) -> str:
         from supabase import create_client
 
-        if not settings.supabase_service_key:
+        if not settings.supabase_secret_key:
             raise AppError("PAYMENT_002", "Supabase storage not configured.", 500)
-        client = create_client(settings.supabase_url, settings.supabase_service_key)
+        client = create_client(settings.supabase_url, settings.supabase_secret_key)
         client.storage.from_("receipts").upload(
             key.split("receipts/", 1)[1],
             payload,

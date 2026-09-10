@@ -10,10 +10,13 @@ from app.core.database import Base
 
 config = context.config
 # Alembic runs synchronously: map the async app URL to the psycopg2 driver.
-config.set_main_option(
-    "sqlalchemy.url",
-    settings.database_url.replace("+asyncpg", "+psycopg2"),
+# asyncpg uses ?ssl=require while psycopg2 wants ?sslmode=require — translate
+# it so staging/supabase URLs (which carry the flag) don't break the sync DSN.
+_sync_url = settings.database_url.replace("+asyncpg", "+psycopg2")
+_sync_url = _sync_url.replace("?ssl=require", "?sslmode=require").replace(
+    "&ssl=require", "&sslmode=require"
 )
+config.set_main_option("sqlalchemy.url", _sync_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
