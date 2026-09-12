@@ -12,6 +12,10 @@ class AdminUserResponse(BaseModel):
     last_name: str
     role: str
     status: str
+    position: str | None = None
+    can_approve_technicians: bool = False
+    can_execute_refunds: bool = False
+    can_view_audit: bool = False
 
 
 class AdminUserListResponse(BaseModel):
@@ -25,3 +29,16 @@ class UserStatusUpdate(BaseModel):
 
 class UserApproval(BaseModel):
     action: str = Field(pattern=r"^(approve|deny)$")
+
+
+class RoleUpdate(BaseModel):
+    """Owner-only: change role (owner<->staff), position, delegation grants.
+
+    Demoting the last active owner is rejected in the service layer.
+    """
+
+    role: str | None = Field(default=None, pattern=r"^(owner|staff)$")
+    position: str | None = Field(default=None, max_length=100)
+    can_approve_technicians: bool | None = None
+    can_execute_refunds: bool | None = None
+    can_view_audit: bool | None = None

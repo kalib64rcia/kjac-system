@@ -84,7 +84,7 @@ async def session() -> AsyncIterator[AsyncSession]:
                 last_name="Min",
                 email="ada@example.com",
                 phone="09170001111",
-                role="admin",
+                role="owner",
                 status="active",
                 email_verified_at=datetime.now(UTC),
             )
@@ -149,7 +149,7 @@ async def test_me_ok(authed_client: tuple[AsyncClient, FakeMailer, dict]) -> Non
     assert response.status_code == 200
     body = response.json()
     assert body["email"] == "ada@example.com"
-    assert body["role"] == "admin"
+    assert body["role"] == "owner"
     assert "password" not in str(body).lower()
 
 

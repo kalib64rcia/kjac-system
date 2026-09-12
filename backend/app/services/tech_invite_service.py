@@ -133,6 +133,7 @@ async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
         middle_name=fields.get("middle_name"),
         last_name=fields["last_name"],
         phone=fields["phone"],
+        position=fields.get("position"),
         date_of_birth=fields.get("date_of_birth"),
         region_code=fields.get("region_code"),
         province_code=fields.get("province_code"),
@@ -146,9 +147,23 @@ async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
     await db.flush()
     await db.refresh(user)
     result = await db.execute(
-        select(User.id).where(User.role == "admin", User.deleted_at.is_(None))
+        select(User.id).where(
+            User.role == "owner",
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
     )
-    for (admin_id,) in result.all():
+    notify_ids = [row[0] for row in result.all()]
+    result = await db.execute(
+        select(User.id).where(
+            User.role == "staff",
+            User.status == "active",
+            User.deleted_at.is_(None),
+            User.can_approve_technicians.is_(True),
+        )
+    )
+    notify_ids += [row[0] for row in result.all()]
+    for admin_id in notify_ids:
         await notify(
             db, admin_id, "technician_pending_approval", "Technician application",
             f"{user.first_name} {user.last_name} ({user.email}) submitted a form.",

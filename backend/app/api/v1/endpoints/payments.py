@@ -71,7 +71,7 @@ async def get_receipt(
     if payment is None or not payment.gcash_receipt_url:
         raise AppError("BOOKING_001", "Receipt not found.", 404)
     booking = await bookings.get_booking_or_404(db, payment.booking_id)
-    if user is not None and user.role == "admin":
+    if user is not None and user.role in ("owner", "staff"):
         pass
     else:
         bookings.assert_owner(booking, user, email)

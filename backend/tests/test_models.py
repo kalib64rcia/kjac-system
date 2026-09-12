@@ -11,7 +11,7 @@ EXPECTED_TABLES = {
     "payments", "refunds", "ratings", "message_threads", "messages",
     "notifications", "inventory_items", "inventory_movements",
     "booking_inventory_usage", "employee_info", "payroll_records",
-    "commission_rules", "audit_logs", "technician_invites",
+    "commission_rules", "audit_logs", "technician_invites", "staff_invites",
 }
 
 

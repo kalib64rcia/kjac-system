@@ -29,6 +29,7 @@ class InviteAccept(BaseModel):
     last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
     phone: str = Field(min_length=9, max_length=25)
+    position: str | None = Field(default=None, max_length=100)
     date_of_birth: date | None = None
     region_code: str | None = Field(default=None, max_length=20)
     province_code: str | None = Field(default=None, max_length=20)

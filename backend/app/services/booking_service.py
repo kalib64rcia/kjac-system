@@ -111,14 +111,23 @@ async def _get_brand(db: AsyncSession, brand_id: int) -> AirconBrand:
     return brand
 
 
-async def _notify_admins(
+async def _notify_office(
     db: AsyncSession, type: str, title: str, message: str, booking_id: int | None = None
 ) -> None:
+    """Fan out to active office users (owner + staff). Kept the old
+    _notify_admins name as an alias below for existing call sites."""
     result = await db.execute(
-        select(User.id).where(User.role == "admin", User.deleted_at.is_(None))
+        select(User.id).where(
+            User.role.in_(("owner", "staff")),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
     )
-    for (admin_id,) in result.all():
-        await notify(db, admin_id, type, title, message, booking_id)
+    for (user_id,) in result.all():
+        await notify(db, user_id, type, title, message, booking_id)
+
+
+_notify_admins = _notify_office
 
 
 async def _notify_customer(booking: Booking, type: str, title: str, message: str,
@@ -272,6 +281,7 @@ async def track_booking(db: AsyncSession, reference_id: str, email: str) -> dict
             tech_name = f"{tech.first_name} {tech.last_name}"
             tech_rating = float(tech.average_rating or 0)
     return {
+        "booking_id": booking.id,
         "reference_id": booking.reference_id,
         "status": booking.status,
         "customer_name": f"{booking.customer_first_name} {booking.customer_last_name}",
@@ -527,7 +537,7 @@ async def tech_update_status(
     """
     if booking.status in ("cancelled", "expired", "completed"):
         raise AppError("BOOKING_003", f"Cannot update a {booking.status} booking.", 409)
-    if actor.role != "admin" and booking.technician_id != actor.id:
+    if actor.role not in ("owner", "staff") and booking.technician_id != actor.id:
         raise AppError("PERM_001", "Only the assigned technician can update this job.", 403)
 
     markers = await _tech_markers(db, booking.id)

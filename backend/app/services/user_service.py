@@ -38,7 +38,14 @@ class UserService:
         self, subject: str, email: str, first_name: str, last_name: str, phone: str
     ) -> tuple[User, bool]:
         """First-login upsert (Phase 5): link by uuid, else by verified email
-        (invite-created tech rows), else create a fresh customer row."""
+        (invite-created tech/staff rows), else create a fresh customer row.
+
+        Owner bootstrap: when no active owner exists and the email matches
+        settings.bootstrap_owner_email, the row is created as owner. The seat
+        closes itself the moment the first owner exists.
+        """
+        from app.core.config import settings
+
         user = await self.get_by_uuid(subject)
         if user is not None:
             return user, False
@@ -55,10 +62,23 @@ class UserService:
             await self.db.commit()
             await self.db.refresh(user)
             return user, False
+        role = "customer"
+        if settings.bootstrap_owner_email:
+            owners = await self.db.execute(
+                select(func.count(User.id)).where(
+                    User.role == "owner",
+                    User.status == "active",
+                    User.deleted_at.is_(None),
+                )
+            )
+            if owners.scalar_one() == 0 and (
+                email.strip().lower() == settings.bootstrap_owner_email.strip().lower()
+            ):
+                role = "owner"
         user = User(
             uuid=parsed_uuid,
             email=email, first_name=first_name, last_name=last_name, phone=phone,
-            role="customer", status="active",
+            role=role, status="active",
         )
         self.db.add(user)
         await self.db.commit()

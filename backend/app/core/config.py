@@ -68,9 +68,13 @@ class Settings(BaseSettings):
     # Public web base URL for emailed links (technician invites, Phase 5).
     public_app_url: str = "http://localhost:5173"
 
+    # First-owner bootstrap: when NO active owner exists yet, a sync whose
+    # email matches becomes the owner. One-time, self-closing. Unset = off.
+    bootstrap_owner_email: str = ""
+
     allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     allowed_methods: list[str] = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
-    allowed_headers: list[str] = ["Authorization", "Content-Type"]
+    allowed_headers: list[str] = ["Authorization", "Content-Type", "X-Admin-2FA"]
     allow_credentials: bool = True
 
 

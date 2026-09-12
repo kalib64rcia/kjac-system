@@ -16,6 +16,7 @@ from app.models.psgc import (  # noqa: F401
     PsgcProvince,
     PsgcRegion,
 )
+from app.models.staff_invite import StaffInvite  # noqa: F401
 from app.models.system import AuditLog, SystemSetting  # noqa: F401
 from app.models.tech_invite import TechnicianInvite  # noqa: F401
 from app.models.users import AdminTwoFaCode, User, UserSession  # noqa: F401

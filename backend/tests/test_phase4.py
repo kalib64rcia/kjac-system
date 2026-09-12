@@ -85,7 +85,7 @@ async def pg4(
             [
                 User(uuid=ADMIN_UUID, first_name="Ada", last_name="Min",
                      email="ada@example.com", phone="09170001111",
-                     role="admin", status="active", email_verified_at=datetime.now(UTC)),
+                     role="owner", status="active", email_verified_at=datetime.now(UTC)),
                 User(uuid=TECH_UUID, first_name="Ben", last_name="Tan",
                      email="ben@example.com", phone="09179876543",
                      role="technician", status="active", email_verified_at=datetime.now(UTC)),

@@ -60,6 +60,7 @@ class BookingResponse(BaseModel):
 class TrackResponse(BaseModel):
     """Public tracking view: masked PII (CONTRACTS.md R1)."""
 
+    booking_id: int  # lets returning guests upload/cancel (email already proven)
     reference_id: str
     status: str
     customer_name: str

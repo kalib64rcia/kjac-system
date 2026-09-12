@@ -30,6 +30,9 @@ NOTIFICATION_TYPES = (
     "reschedule_denied",
     "low_stock_alert",
     "technician_pending_approval",
+    "staff_pending_approval",
+    "refund_proposed",
+    "refund_reviewed",
     "password_reset",
     "account_locked",
 )

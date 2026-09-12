@@ -19,8 +19,11 @@ from app.models.common import (
     updated_at_column,
 )
 
-USER_ROLES = ("admin", "customer", "technician")
+USER_ROLES = ("owner", "staff", "customer", "technician")
 USER_STATUSES = ("active", "inactive", "suspended", "pending_approval")
+
+# Office roles (back-office users behind /admin + 2FA ticket gate).
+OFFICE_ROLES = ("owner", "staff")
 
 
 class User(Base):
@@ -45,6 +48,15 @@ class User(Base):
 
     role: Mapped[str] = mapped_column(String(20), default="customer")
     status: Mapped[str] = mapped_column(String(20), default="active")
+
+    # Job label shared by staff + technicians (Dispatcher, Senior Tech…).
+    position: Mapped[str | None] = mapped_column(String(100))
+
+    # Per-account delegation grants (owner flips per person, default deny).
+    # Payroll is ungrantable by design — no column, no toggle, ever.
+    can_approve_technicians: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_execute_refunds: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_view_audit: Mapped[bool] = mapped_column(Boolean, default=False)
 
     profile_picture_url: Mapped[str | None] = mapped_column(Text)
     date_of_birth: Mapped[date | None] = mapped_column(Date)

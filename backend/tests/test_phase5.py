@@ -104,7 +104,7 @@ async def pg5(
             [
                 User(uuid=ADMIN_UUID, first_name="Ada", last_name="Min",
                      email="ada@example.com", phone="09170001111",
-                     role="admin", status="active", email_verified_at=datetime.now(UTC)),
+                     role="owner", status="active", email_verified_at=datetime.now(UTC)),
                 User(uuid=CUSTOMER_UUID, first_name="Cid", last_name="Cus",
                      email="cid@example.com", phone="09170002222",
                      role="customer", status="active", email_verified_at=datetime.now(UTC)),
@@ -554,3 +554,35 @@ async def test_analytics_dashboard(pg5: tuple[AsyncClient, dict, AsyncSession]) 
     assert len(body["charts"]["customer_growth"]) == 6
     assert any(p["service"] == "General Cleaning"
                for p in body["charts"]["bookings_by_service"])
+
+
+async def test_public_landing_content(pg5: tuple[AsyncClient, dict, AsyncSession]) -> None:
+    client, _, session = pg5
+    session.add_all(
+        [
+            SystemSetting(setting_key="hero_title",
+                          setting_value="KLEIN & JUSTIN AIRCONDITIONING",
+                          data_type="string", category="landing",
+                          description="Landing hero business name (H1)"),
+            SystemSetting(setting_key="announcement_enabled", setting_value="false",
+                          data_type="boolean", category="landing",
+                          description="Show the announcement band"),
+            SystemSetting(setting_key="faq_items", setting_value="[]",
+                          data_type="json", category="landing",
+                          description="FAQ entries"),
+            SystemSetting(setting_key="mission_text", setting_value="",
+                          data_type="string", category="landing",
+                          description="Mission section text"),
+        ]
+    )
+    await session.commit()
+    response = await client.get("/v1/content/landing")
+    assert response.status_code == 200, response.text
+    rows = {r["setting_key"]: r for r in response.json()}
+    assert rows["hero_title"]["setting_value"] == "KLEIN & JUSTIN AIRCONDITIONING"
+    assert rows["announcement_enabled"]["data_type"] == "boolean"
+    assert rows["faq_items"]["data_type"] == "json"
+    assert rows["mission_text"]["category"] == "landing"
+    # admin-only surface untouched: full list still requires admin 2FA
+    denied = await client.get("/v1/admin/settings")
+    assert denied.status_code in (401, 403)

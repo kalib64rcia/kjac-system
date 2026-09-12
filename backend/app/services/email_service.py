@@ -52,6 +52,17 @@ class EmailService:
             logger.warning("technician invite not delivered to %s", to)
         return sent
 
+    def send_staff_invite(self, to: str, link: str) -> bool:
+        body = (
+            "You have been invited to join KJAC office staff.\n\n"
+            f"Complete your application here (one-time link, valid 7 days):\n{link}\n\n"
+            "If you did not expect this invitation, please ignore it."
+        )
+        sent = self.send(to, "KJAC staff invitation", body)
+        if not sent:
+            logger.warning("staff invite not delivered to %s", to)
+        return sent
+
     def send_two_fa_code(self, to: str, code: str, ttl_minutes: int) -> bool:
         body = (
             "Your KJAC admin verification code is:\n\n"

@@ -123,7 +123,7 @@ async def pg_client(
                 User(
                     uuid=ADMIN_UUID, first_name="Ada", last_name="Min",
                     email="ada@example.com", phone="09170001111",
-                    role="admin", status="active",
+                    role="owner", status="active",
                     email_verified_at=datetime.now(UTC),
                 ),
                 User(
@@ -295,6 +295,7 @@ async def test_track_masks_pii(pg_client: tuple[AsyncClient, dict, AsyncSession]
     assert "street_address" not in body
     assert "customer_phone" not in body
     assert isinstance(body["timeline"], list)
+    assert body["booking_id"] == booking["id"]
 
     wrong = await client.get(
         f"/v1/bookings/track/{booking['reference_id']}", params={"email": "nope@example.com"}

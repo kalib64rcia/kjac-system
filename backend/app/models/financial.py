@@ -89,10 +89,10 @@ class Refund(Base):
     __table_args__ = (
         CheckConstraint("refund_amount >= 0", name="chk_refunds_amount"),
         CheckConstraint(
-            "refund_type IN ('full', 'partial', 'none')", name="chk_refunds_type_valid"
+            "refund_type IN ('full', 'partial', 'none', 'manual')", name="chk_refunds_type_valid"
         ),
         CheckConstraint(
-            "status IN ('processing', 'approved', 'denied', 'completed')",
+            "status IN ('proposed', 'processing', 'approved', 'denied', 'completed')",
             name="chk_refunds_status_valid",
         ),
         CheckConstraint(

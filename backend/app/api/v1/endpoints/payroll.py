@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Query, Request, status
 
-from app.api.deps import AdminTwoFaUser, CurrentUser, DbDep
+from app.api.deps import CurrentUser, DbDep, OwnerTwoFaUser
 from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.schemas.payroll import (
@@ -20,15 +20,15 @@ router = APIRouter(tags=["payroll"])
              status_code=status.HTTP_201_CREATED)
 @limiter.limit("60/minute")
 async def generate(request: Request, payload: PayrollGenerate, db: DbDep,
-                   admin: AdminTwoFaUser) -> PayrollResponse:
-    row = await payroll.generate_payroll(db, admin.id, **payload.model_dump())
+                   owner: OwnerTwoFaUser) -> PayrollResponse:
+    row = await payroll.generate_payroll(db, owner.id, **payload.model_dump())
     return PayrollResponse.model_validate(row)
 
 
 @router.get("/admin/payroll", response_model=PayrollListResponse)
 @limiter.limit("500/minute")
 async def search_payrolls(
-    request: Request, db: DbDep, admin: AdminTwoFaUser,
+    request: Request, db: DbDep, owner: OwnerTwoFaUser,
     employee_user_id: int | None = Query(default=None, gt=0),
     payroll_status: str | None = Query(default=None, max_length=20),
     page: int = Query(default=1, ge=1),
@@ -44,7 +44,7 @@ async def search_payrolls(
 @router.get("/admin/payroll/{payroll_id}", response_model=PayrollResponse)
 @limiter.limit("500/minute")
 async def get_payroll(request: Request, payroll_id: int, db: DbDep,
-                      admin: AdminTwoFaUser) -> PayrollResponse:
+                      owner: OwnerTwoFaUser) -> PayrollResponse:
     from app.models.hr import PayrollRecord
 
     row = await db.get(PayrollRecord, payroll_id)
@@ -56,7 +56,7 @@ async def get_payroll(request: Request, payroll_id: int, db: DbDep,
 @router.patch("/admin/payroll/{payroll_id}", response_model=PayrollResponse)
 @limiter.limit("60/minute")
 async def transition(request: Request, payroll_id: int, payload: PayrollTransition,
-                     db: DbDep, admin: AdminTwoFaUser) -> PayrollResponse:
+                     db: DbDep, owner: OwnerTwoFaUser) -> PayrollResponse:
     row = await payroll.transition_payroll(db, payroll_id, payload.action,
                                            payload.payment_method)
     return PayrollResponse.model_validate(row)
