@@ -270,7 +270,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <ScrollArea className="min-h-0 flex-1" viewportId="public-scroll">
-        <main id="main-content" className="scroll-mt-4">{children}</main>
+        <main id="main-content" className="scroll-mt-4 overflow-x-clip contain-inline-size">{children}</main>
       </ScrollArea>
       <ScrollToTop targetId="public-scroll" />
       <Toaster />

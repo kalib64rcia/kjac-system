@@ -12,9 +12,9 @@ export function AboutSection({ content }: { content: LandingContent }) {
           src="/assets/business/kjac-banner-2.jpg"
           alt="KJAC service van and shop in Sta. Cruz, Laguna"
           loading="lazy"
-          className="w-full rounded-xl border border-gray-200 object-cover shadow-md"
+          className="w-full min-w-0 rounded-xl border border-gray-200 object-cover shadow-md"
         />
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">About KJAC</h2>
           <p className="mt-3 leading-relaxed text-gray-600">{content.about_text}</p>
           <ul className="mt-4 flex flex-col gap-2 text-sm font-medium text-gray-700">

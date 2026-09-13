@@ -19,7 +19,7 @@ export function GuidesGrid() {
         {GUIDES.map((g) => (
           <figure
             key={g.src}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md"
+            className="min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md"
           >
             <img
               src={g.src}
