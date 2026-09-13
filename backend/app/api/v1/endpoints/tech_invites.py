@@ -56,3 +56,10 @@ async def accept_invite(request: Request, payload: InviteAccept,
                         db: DbDep) -> InviteAcceptResponse:
     user = await invites.accept_invite(db, payload.token, payload.model_dump())
     return InviteAcceptResponse(id=user.id, status=user.status)
+
+
+@router.get("/auth/technician/invite-state")
+@limiter.limit("30/minute")
+async def invite_state(request: Request, token: str, db: DbDep) -> dict:
+    """Public resume probe: same token rules, no data beyond the step hint."""
+    return await invites.invite_state(db, token)

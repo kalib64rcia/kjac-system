@@ -52,6 +52,15 @@ class User(Base):
     # Job label shared by staff + technicians (Dispatcher, Senior Tech…).
     position: Mapped[str | None] = mapped_column(String(100))
 
+    # Employee gender (male/female). NULL = joined before recording began;
+    # shown as "not specified", never invented. Required on new accepts.
+    gender: Mapped[str | None] = mapped_column(String(10))
+
+    # When the employee ticked Data Privacy consent (invite form).
+    data_privacy_consented_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+
     # Per-account delegation grants (owner flips per person, default deny).
     # Payroll is ungrantable by design — no column, no toggle, ever.
     can_approve_technicians: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -85,6 +94,10 @@ class User(Base):
     __table_args__ = (
         CheckConstraint(f"role IN {USER_ROLES}", name="chk_users_role_valid"),
         CheckConstraint(f"status IN {USER_STATUSES}", name="chk_users_status_valid"),
+        CheckConstraint(
+            "gender IS NULL OR gender IN ('male', 'female')",
+            name="chk_users_gender_valid",
+        ),
         CheckConstraint("average_rating >= 0 AND average_rating <= 5", name="chk_users_rating_range"),
     )
 

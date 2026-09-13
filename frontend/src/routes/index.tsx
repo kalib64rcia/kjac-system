@@ -4,6 +4,7 @@ import { AuthLayout } from "@/layouts/AuthLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { OwnerDashboardPage, StaffDashboardPage } from "@/pages/office/Dashboards";
 import { ModulePlaceholder } from "@/pages/office/ModulePlaceholder";
+import { ProfilePage } from "@/pages/office/ProfilePage";
 import { RefundsPage } from "@/pages/office/RefundsPage";
 import { AuditPage } from "@/pages/owner/AuditPage";
 import { ApprovalsPage, StaffPage } from "@/pages/owner/StaffPage";
@@ -16,6 +17,7 @@ import { BookingSuccessPage } from "@/pages/public/BookingSuccessPage";
 import { PrivacyPage, TermsPage, WarrantyPage } from "@/pages/public/LegalPages";
 import { HomePage } from "@/pages/public/HomePage";
 import { StaffAcceptPage } from "@/pages/public/StaffAcceptPage";
+import { TechAcceptPage } from "@/pages/public/TechAcceptPage";
 import { TrackPage } from "@/pages/public/TrackPage";
 import {
   GuestOnlyRoute,
@@ -42,6 +44,7 @@ function StaffShell({ children }: { children: React.ReactNode }) {
 
 const ownerRoutes = [
   { path: "dashboard", el: <OwnerDashboardPage /> },
+  { path: "profile", el: <ProfilePage /> },
   { path: "bookings", el: <ModulePlaceholder title="Bookings" hint="Dispatch board ships with the bookings module." /> },
   { path: "payments", el: <ModulePlaceholder title="Payments" hint="Verification queue ships with the payments module." /> },
   { path: "customers", el: <ModulePlaceholder title="Customers" /> },
@@ -60,6 +63,7 @@ const ownerRoutes = [
 
 const staffRoutes = [
   { path: "dashboard", el: <StaffDashboardPage /> },
+  { path: "profile", el: <ProfilePage /> },
   { path: "bookings", el: <ModulePlaceholder title="Bookings" hint="Dispatch board ships with the bookings module." /> },
   { path: "payments", el: <ModulePlaceholder title="Payments" hint="Verification queue ships with the payments module." /> },
   { path: "refunds", el: <RefundsPage /> },
@@ -82,6 +86,7 @@ export const router = createBrowserRouter([
       { path: "/warranty", element: <PublicShell><WarrantyPage /></PublicShell> },
       { path: "/track", element: <PublicShell><TrackPage /></PublicShell> },
       { path: "/staff/accept", element: <StaffAcceptPage /> },
+      { path: "/technician/accept", element: <TechAcceptPage /> },
     ],
   },
   {

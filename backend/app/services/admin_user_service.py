@@ -62,9 +62,10 @@ async def set_status(db: AsyncSession, user_id: int, new_status: str) -> User:
 
 async def update_role(
     db: AsyncSession, user_id: int, actor: User, role: str | None,
-    position: str | None, grants: dict[str, bool | None],
+    position: str | None, gender: str | None, grants: dict[str, bool | None],
 ) -> User:
-    """Owner-only: owner<->staff moves, position title, delegation grants.
+    """Owner-only: owner<->staff moves, position, gender (grandfathered
+    blanks), delegation grants.
 
     The last active owner can never be demoted or suspended — the seat that
     closes itself must never lock the business out.
@@ -84,6 +85,8 @@ async def update_role(
         user.role = role
     if position is not None:
         user.position = position.strip() or None
+    if gender is not None:
+        user.gender = gender
     for grant in ("can_approve_technicians", "can_execute_refunds", "can_view_audit"):
         if grants.get(grant) is not None:
             setattr(user, grant, bool(grants[grant]))

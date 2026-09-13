@@ -1,6 +1,7 @@
 """Admin user management endpoints."""
 
 from fastapi import APIRouter, Query, Request
+from pydantic import BaseModel
 
 from app.api.deps import AdminTwoFaUser, DbDep, OwnerTwoFaUser
 from app.core.rate_limit import limiter
@@ -55,7 +56,7 @@ async def review_user(request: Request, user_id: int, payload: UserApproval,
 async def change_role(request: Request, user_id: int, payload: RoleUpdate,
                       db: DbDep, owner: OwnerTwoFaUser) -> AdminUserResponse:
     row = await users.update_role(
-        db, user_id, owner, payload.role, payload.position,
+        db, user_id, owner, payload.role, payload.position, payload.gender,
         {
             "can_approve_technicians": payload.can_approve_technicians,
             "can_execute_refunds": payload.can_execute_refunds,
@@ -63,3 +64,38 @@ async def change_role(request: Request, user_id: int, payload: RoleUpdate,
         },
     )
     return AdminUserResponse.model_validate(row)
+
+
+class WorkforceStats(BaseModel):
+    by_role_gender: dict[str, dict[str, int]]
+    total: int
+
+
+@router.get("/workforce-stats", response_model=WorkforceStats)
+@limiter.limit("300/minute")
+async def workforce_stats(
+    request: Request, db: DbDep, user: AdminTwoFaUser,
+) -> WorkforceStats:
+    """Headcount by role × gender (NULL gender reported as not_specified,
+    never invented). Office-wide visibility; payroll stays separate."""
+    from sqlalchemy import func, select
+
+    from app.models.users import User
+
+    rows = (
+        await db.execute(
+            select(User.role, User.gender, func.count(User.id))
+            .where(
+                User.role.in_(("owner", "staff", "technician")),
+                User.status == "active",
+                User.deleted_at.is_(None),
+            )
+            .group_by(User.role, User.gender)
+        )
+    ).all()
+    by_role: dict[str, dict[str, int]] = {}
+    total = 0
+    for role, gender, count in rows:
+        by_role.setdefault(role, {})[gender or "not_specified"] = count
+        total += count
+    return WorkforceStats(by_role_gender=by_role, total=total)

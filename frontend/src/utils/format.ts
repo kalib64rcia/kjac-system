@@ -22,6 +22,21 @@ export function formatTime12h(hhmm: string): string {
   return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
+/** Initials for avatar fallbacks — first + last name, email letter backup. */
+export function getInitials(
+  firstName?: string | null,
+  lastName?: string | null,
+  email?: string | null,
+): string {
+  const first = (firstName ?? "").trim();
+  const last = (lastName ?? "").trim();
+  if (first || last) {
+    return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "?";
+  }
+  const mail = (email ?? "").trim();
+  return mail ? mail.charAt(0).toUpperCase() : "?";
+}
+
 /** Live countdown target helper — returns remaining ms (<=0 when elapsed). */
 export function msUntil(iso: string | null): number {
   if (!iso) return 0;

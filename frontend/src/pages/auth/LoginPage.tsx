@@ -35,7 +35,7 @@ function CredentialsStep() {
   });
 
   return (
-    <form onSubmit={(e) => void submit(e)} noValidate aria-label="Admin sign in">
+    <form onSubmit={(e) => void submit(e)} noValidate aria-label="Admin log in">
       <div className="flex flex-col gap-4">
         <div>
           <Label htmlFor="login-email">Email *</Label>
@@ -80,10 +80,10 @@ function CredentialsStep() {
         {formState.isSubmitting ? (
           <>
             <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-            Signing in…
+            Logging in…
           </>
         ) : (
-          "Sign In"
+          "Log in"
         )}
       </Button>
     </form>
@@ -114,7 +114,7 @@ function ProfileStep() {
       <div className="flex flex-col items-center text-center">
         <h2 className="text-lg font-bold text-gray-900">One last step</h2>
         <p className="mt-1 text-sm text-gray-600">
-          This sign-in isn&apos;t linked to a profile yet. Tell us who you are —
+          This log-in isn&apos;t linked to a profile yet. Tell us who you are —
           accounts created here wait for owner approval unless invited.
         </p>
       </div>
@@ -294,7 +294,7 @@ export function LoginPage() {
         <h1 className="mt-3 text-balance text-xl font-bold text-gray-900">Admin access</h1>
         <p className="mt-1 flex items-center gap-1 text-sm text-gray-600">
           <ShieldCheck size={15} aria-hidden="true" className="text-primary-600" />
-          {step === "code" ? "Two-step verification" : step === "profile" ? "First-time setup" : "Sign in with your admin account"}
+          {step === "code" ? "Two-step verification" : step === "profile" ? "First-time setup" : "Log in with your admin account"}
         </p>
       </div>
       <div className="mt-6">

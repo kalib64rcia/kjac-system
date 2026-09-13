@@ -39,7 +39,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-[80] min-w-[12rem] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg data-[state=open]:animate-fade-in",
+          "thin-scroll z-[80] min-w-[12rem] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg data-[state=open]:animate-fade-in",
           className,
         )}
         {...props}

@@ -53,7 +53,7 @@ export function ForgotPasswordPage() {
             className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-sm font-semibold text-primary-600 hover:underline"
           >
             <ArrowLeft size={16} aria-hidden="true" />
-            Back to sign in
+            Back to log in
           </Link>
         </div>
       ) : (
@@ -94,7 +94,7 @@ export function ForgotPasswordPage() {
             className="mt-3 inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-sm font-semibold text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft size={16} aria-hidden="true" />
-            Back to sign in
+            Back to log in
           </Link>
         </form>
       )}

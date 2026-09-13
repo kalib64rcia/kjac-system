@@ -2,6 +2,7 @@
 
 import re
 from datetime import UTC, date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -30,13 +31,13 @@ class StaffInviteAccept(BaseModel):
     email: EmailStr
     phone: str = Field(min_length=9, max_length=25)
     position: str | None = Field(default=None, max_length=100)
-    date_of_birth: date | None = None
-    region_code: str | None = Field(default=None, max_length=20)
-    province_code: str | None = Field(default=None, max_length=20)
-    city_municipality_code: str | None = Field(default=None, max_length=20)
-    barangay_code: str | None = Field(default=None, max_length=20)
-    street_address: str | None = Field(default=None, max_length=500)
-    landmark: str | None = Field(default=None, max_length=255)
+    gender: Literal["male", "female"]
+    date_of_birth: date
+    region_code: str = Field(min_length=1, max_length=20)
+    province_code: str = Field(min_length=1, max_length=20)
+    city_municipality_code: str = Field(min_length=1, max_length=20)
+    barangay_code: str = Field(min_length=1, max_length=20)
+    privacy_consent: Literal[True]
 
     @field_validator("phone")
     @classmethod
@@ -47,14 +48,13 @@ class StaffInviteAccept(BaseModel):
 
     @field_validator("date_of_birth")
     @classmethod
-    def adult_only(cls, value: date | None) -> date | None:
-        if value is not None:
-            today = datetime.now(UTC).date()
-            age = today.year - value.year - (
-                (today.month, today.day) < (value.month, value.day)
-            )
-            if age < 18:
-                raise ValueError("Staff must be 18 or older")
+    def adult_only(cls, value: date) -> date:
+        today = datetime.now(UTC).date()
+        age = today.year - value.year - (
+            (today.month, today.day) < (value.month, value.day)
+        )
+        if age < 18:
+            raise ValueError("Staff must be 18 or older")
         return value
 
 

@@ -48,7 +48,7 @@ export function ResetPasswordPage() {
       setServerError(error.message);
       return;
     }
-    toast.success("Password updated", "Sign in with your new password.");
+    toast.success("Password updated", "Log in with your new password.");
     void navigate("/admin/login", { replace: true });
   });
 

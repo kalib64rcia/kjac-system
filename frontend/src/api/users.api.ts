@@ -8,6 +8,7 @@ export interface OfficeUser {
   role: string;
   status: string;
   position?: string | null;
+  gender?: string | null;
   can_approve_technicians?: boolean;
   can_execute_refunds?: boolean;
   can_view_audit?: boolean;
@@ -60,8 +61,18 @@ export const invitesApi = {
     api.post<Invite>(`/admin/staff-invites/${id}/revoke`, {}).then((r) => r.data),
   staffAccept: (payload: Record<string, unknown>) =>
     api.post<{ id: number; status: string }>("/auth/staff/accept", payload).then((r) => r.data),
+  staffState: (token: string) =>
+    api.get<{ state: string; email?: string; status?: string }>(
+      "/auth/staff/invite-state", { params: { token } },
+    ).then((r) => r.data),
 
   techList: () => api.get<Invite[]>("/admin/tech-invites").then((r) => r.data),
+  techAccept: (payload: Record<string, unknown>) =>
+    api.post<{ id: number; status: string }>("/auth/technician/accept", payload).then((r) => r.data),
+  techState: (token: string) =>
+    api.get<{ state: string; email?: string; status?: string }>(
+      "/auth/technician/invite-state", { params: { token } },
+    ).then((r) => r.data),
   techSend: (email: string) =>
     api.post<Invite>("/admin/tech-invites", { email }).then((r) => r.data),
   techResend: (id: number) =>

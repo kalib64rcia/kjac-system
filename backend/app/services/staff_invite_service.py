@@ -108,21 +108,73 @@ async def revoke_invite(db: AsyncSession, invite_id: int) -> StaffInvite:
     return row
 
 
-async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
-    """Validate the single-use link and create the pending staff row."""
+async def _usable_invite(db: AsyncSession, token: str) -> StaffInvite | None:
+    """Same resume contract as technician invites: usable until decided;
+    used_at means 'mailbox proven', not 'burned'."""
     result = await db.execute(
         select(StaffInvite).where(StaffInvite.token_hash == _hash(token))
     )
     invite = result.scalar_one_or_none()
-    if invite is None or not invite.is_live:
+    if invite is None:
+        return None
+    if invite.revoked_at is not None:
+        return None
+    if invite.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
+        return None
+    return invite
+
+
+async def invite_state(db: AsyncSession, token: str) -> dict:
+    """Resume state for a staff invite link (see tech_invite_service)."""
+    invite = await _usable_invite(db, token)
+    if invite is None:
+        return {"state": "invalid"}
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == invite.email.lower())
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        return {"state": "new", "email": invite.email}
+    if user.status == "pending_approval":
+        return {
+            "state": "needs_login" if user.uuid is None else "waiting_approval",
+            "email": invite.email,
+        }
+    return {"state": "decided", "status": user.status, "email": invite.email}
+
+
+async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
+    """Validate the single-use link and create (or refresh) the pending row.
+
+    Idempotent for same token + same email while still pending.
+    """
+    invite = await _usable_invite(db, token)
+    if invite is None:
         raise AppError("AUTH_005", "Invite is invalid, expired, or already used.", 400)
     if fields["email"].strip().lower() != invite.email.lower():
         raise AppError("AUTH_005", "Form email must match the invited email.", 400)
     existing = await db.execute(
-        select(User.id).where(func.lower(User.email) == invite.email.lower())
+        select(User).where(func.lower(User.email) == invite.email.lower())
     )
-    if existing.scalar_one_or_none() is not None:
-        raise AppError("BOOKING_003", "An account with this email already exists.", 409)
+    user = existing.scalar_one_or_none()
+    if user is not None:
+        if user.status != "pending_approval" or user.uuid is not None:
+            raise AppError("BOOKING_003", "An account with this email already exists.", 409)
+        user.first_name = fields["first_name"]
+        user.middle_name = fields.get("middle_name")
+        user.last_name = fields["last_name"]
+        user.phone = fields["phone"]
+        user.position = fields.get("position")
+        user.gender = fields["gender"]
+        user.date_of_birth = fields["date_of_birth"]
+        user.region_code = fields.get("region_code")
+        user.province_code = fields.get("province_code")
+        user.city_municipality_code = fields.get("city_municipality_code")
+        user.barangay_code = fields.get("barangay_code")
+        user.data_privacy_consented_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(user)
+        return user
 
     user = User(
         role="staff",
@@ -134,16 +186,19 @@ async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
         last_name=fields["last_name"],
         phone=fields["phone"],
         position=fields.get("position"),
-        date_of_birth=fields.get("date_of_birth"),
+        gender=fields["gender"],
+        date_of_birth=fields["date_of_birth"],
         region_code=fields.get("region_code"),
         province_code=fields.get("province_code"),
         city_municipality_code=fields.get("city_municipality_code"),
         barangay_code=fields.get("barangay_code"),
-        street_address=fields.get("street_address"),
-        landmark=fields.get("landmark"),
+        data_privacy_consented_at=datetime.now(UTC),
     )
     db.add(user)
-    invite.used_at = datetime.now(UTC)
+    await db.flush()
+    await db.refresh(user)
+    if invite.used_at is None:
+        invite.used_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(user)
     result = await db.execute(

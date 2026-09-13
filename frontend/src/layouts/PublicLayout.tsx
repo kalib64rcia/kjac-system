@@ -5,6 +5,8 @@ import { useBrands, useLandingContent, useServices } from "@/hooks/usePublic";
 import { useUiStore } from "@/stores/ui.store";
 import { Toaster } from "@/components/feedback/Toaster";
 import { ScrollProgress } from "@/components/navigation/ScrollProgress";
+import { ScrollToTop } from "@/components/navigation/ScrollToTop";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetCloseButton, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 function scrollToSection(id: string) {
@@ -68,11 +70,13 @@ function MobileSheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent label="Menu" onClose={() => setOpen(false)} className="p-0">
         <SheetTitle className="sr-only">Menu</SheetTitle>
-        <div className="flex items-center gap-2 border-b border-gray-200 p-4 pr-16">
+        <div className="flex h-20 shrink-0 items-center gap-2 border-b border-gray-200 px-4">
           <img src="/assets/business/kjac-logo.png" alt="" aria-hidden="true" className="h-9 w-9 shrink-0 rounded-full" />
-          <img src="/assets/business/kjac-brand-name.png" alt="KJAC" className="h-6 w-auto max-w-[130px]" />
+          <img src="/assets/business/kjac-brand-name.png" alt="KJAC" className="h-6 w-auto shrink-0" style={{ maxWidth: 130 }} />
+          <SheetCloseButton onClose={() => setOpen(false)} />
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-4" aria-label="Mobile">
+        <ScrollArea className="min-h-0 flex-1">
+          <nav className="flex flex-col gap-1 p-4" aria-label="Mobile">
           <Link to="/" onClick={() => setOpen(false)} className={mobileItem}>
             Home
           </Link>
@@ -130,7 +134,8 @@ function MobileSheet() {
                 {label}
               </button>
             ))}
-        </nav>
+          </nav>
+        </ScrollArea>
         <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white p-4">
           <Link
             to="/book"
@@ -161,9 +166,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const partner = brands.data?.find((b) => b.is_partner);
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <ScrollProgress />
-      <header className="sticky top-0 z-40 h-20 border-b border-gray-200 bg-white shadow-sm">
+    <div className="flex h-dvh flex-col overflow-hidden bg-white">
+      <ScrollProgress targetId="public-scroll" />
+      <header className="z-40 h-20 shrink-0 border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link to="/" aria-label="KJAC home" className="flex shrink-0 cursor-pointer items-center gap-2">
             <img
@@ -175,7 +180,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             <img
               src="/assets/business/kjac-brand-name.png"
               alt="Klein & Justin Airconditioning"
-              className="h-7 w-auto max-w-[150px]"
+              className="h-7 w-auto shrink-0"
+              style={{ maxWidth: 150 }}
             />
           </Link>
           <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
@@ -263,7 +269,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <main id="main-content" className="flex-1">{children}</main>
+      <ScrollArea className="min-h-0 flex-1" viewportId="public-scroll">
+        <main id="main-content" className="scroll-mt-4">{children}</main>
+      </ScrollArea>
+      <ScrollToTop targetId="public-scroll" />
       <Toaster />
     </div>
   );

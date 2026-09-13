@@ -67,7 +67,7 @@ export function AuditPage() {
                   {new Date(log.created_at).toLocaleString()}
                 </span>
               </summary>
-              <pre className="mt-2 overflow-x-auto rounded-md bg-gray-50 p-3 font-technical text-xs text-gray-700">
+              <pre className="thin-scroll mt-2 overflow-x-auto rounded-md bg-gray-50 p-3 font-technical text-xs text-gray-700">
                 {JSON.stringify({ before: log.old_data, after: log.new_data }, null, 2)}
               </pre>
             </details>

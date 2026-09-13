@@ -1,6 +1,5 @@
 import { useLandingContent } from "@/hooks/usePublic";
 import { LANDING_DEFAULTS } from "@/types/content.types";
-import { ScrollToTop } from "@/components/navigation/ScrollToTop";
 import { AboutSection } from "@/components/public/AboutSection";
 import { AnnouncementBar } from "@/components/public/AnnouncementBar";
 import { BrandsSection } from "@/components/public/BrandsSection";
@@ -43,7 +42,6 @@ export function HomePage() {
           <Footer content={content} />
         </div>
       </div>
-      <ScrollToTop />
     </>
   );
 }

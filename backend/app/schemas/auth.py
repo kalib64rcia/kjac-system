@@ -34,6 +34,7 @@ class MeResponse(BaseModel):
     role: str
     status: str
     position: str | None = None
+    gender: str | None = None
     can_approve_technicians: bool = False
     can_execute_refunds: bool = False
     can_view_audit: bool = False

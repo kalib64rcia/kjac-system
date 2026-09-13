@@ -125,6 +125,11 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Window chrome keeps native scroll (keyboard/anchors/a11y intact),
+     * styled into the same pill-and-groove language as in-app overlay bars:
+     * whisper groove + light pill bar, one fixed scheme everywhere. */
+    scrollbar-width: thin;
+    scrollbar-color: rgb(209 213 219 / 0.5) rgb(156 163 175 / 0.1);
   }
 
   body {
@@ -142,11 +147,95 @@
     max-width: 100%;
     height: auto;
   }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgb(156 163 175 / 0.1);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(209 213 219 / 0.5);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(209 213 219 / 0.5);
+    background-clip: content-box;
+  }
 }
 
 @layer utilities {
   .font-technical {
     font-family: var(--font-technical);
+  }
+
+  /* Ghost pill-and-groove scrollbars (drawer, menus, code blocks): fully
+   * invisible at rest, fading in only on hover, touch-press, or keyboard
+   * focus inside. Same fixed light trio as everywhere else. */
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .thin-scroll:hover,
+  .thin-scroll:active,
+  .thin-scroll:focus-within {
+    scrollbar-color: rgb(209 213 219 / 0.5) rgb(156 163 175 / 0.1);
+  }
+
+  .thin-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .thin-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 9999px;
+  }
+
+  .thin-scroll::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .thin-scroll:hover::-webkit-scrollbar-track,
+  .thin-scroll:active::-webkit-scrollbar-track,
+  .thin-scroll:focus-within::-webkit-scrollbar-track {
+    background: rgb(156 163 175 / 0.1);
+  }
+
+  .thin-scroll:hover::-webkit-scrollbar-thumb,
+  .thin-scroll:active::-webkit-scrollbar-thumb,
+  .thin-scroll:focus-within::-webkit-scrollbar-thumb {
+    background: rgb(209 213 219 / 0.5);
+    background-clip: content-box;
+  }
+
+  /* Zero-bar scrolling for carousels (arrows + dots carry affordance). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Scrollbar end buttons (▲▼) are forbidden everywhere: no source may
+   * render them, regardless of browser defaults, flags, or extensions. */
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 }
 

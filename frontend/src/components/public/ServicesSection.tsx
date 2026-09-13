@@ -66,7 +66,7 @@ export function ServicesSection() {
                 const max = el.scrollWidth - el.clientWidth;
                 setPage(max > 0 ? Math.round((el.scrollLeft / max) * (data.length - 1)) : 0);
               }}
-              className="mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
+              className="no-scrollbar mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
               aria-label="Services carousel"
             >
               {data.map((s) => (

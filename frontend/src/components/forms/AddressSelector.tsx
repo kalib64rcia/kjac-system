@@ -22,6 +22,8 @@ interface AddressSelectorProps {
   landmark: string;
   onText: (patch: { street_address?: string; landmark?: string }) => void;
   textErrors: { street_address?: string; landmark?: string };
+  /** Employees give PSGC area only (no doorstep data): hides street/landmark. */
+  areaOnly?: boolean;
 }
 
 function CascadeSelect({
@@ -59,9 +61,9 @@ function CascadeSelect({
       <Select value={value} onValueChange={onValueChange} disabled={disabled || loading}>
         <SelectTrigger id={id} aria-invalid={!!error} aria-busy={loading}>
           {loading ? (
-            <span className="inline-flex items-center gap-2 text-gray-500">
-              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-              Loading…
+            <span className="flex min-w-0 flex-1 items-center gap-2 text-gray-500">
+              <Loader2 size={16} aria-hidden="true" className="size-4 shrink-0 animate-spin" />
+              <span className="truncate">Loading…</span>
             </span>
           ) : (
             <SelectValue placeholder={disabled ? disabledHint : placeholder} />
@@ -70,7 +72,7 @@ function CascadeSelect({
         <SelectContent>
           <SelectGroup>
           {(items ?? []).map((item) => (
-            <SelectItem key={item.code} value={item.code}>
+            <SelectItem key={item.code} value={item.code} title={item.name}>
               {item.name}
             </SelectItem>
           ))}
@@ -156,32 +158,36 @@ export function AddressSelector(props: AddressSelectorProps) {
         onValueChange={(v) => onChange({ barangay: v })}
         error={errors.barangay_code}
       />
-      <div className="sm:col-span-2">
-        <Label htmlFor="street">Street address *</Label>
-        <input
-          id="street"
-          name="street_address"
-          className="flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base placeholder:text-gray-400 focus:border-primary-600 focus:outline-none aria-[invalid=true]:border-error-500"
-          placeholder="House #, Street, Subdivision"
-          value={props.street}
-          aria-invalid={!!props.textErrors.street_address}
-          onChange={(e) => props.onText({ street_address: e.target.value })}
-        />
-        <FieldError message={props.textErrors.street_address} />
-      </div>
-      <div className="sm:col-span-2">
-        <Label htmlFor="landmark">Landmark *</Label>
-        <input
-          id="landmark"
-          name="landmark"
-          className="flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base placeholder:text-gray-400 focus:border-primary-600 focus:outline-none aria-[invalid=true]:border-error-500"
-          placeholder="e.g., Near McDonald's, green gate"
-          value={props.landmark}
-          aria-invalid={!!props.textErrors.landmark}
-          onChange={(e) => props.onText({ landmark: e.target.value })}
-        />
-        <FieldError message={props.textErrors.landmark} />
-      </div>
+      {!props.areaOnly && (
+        <div className="sm:col-span-2">
+          <Label htmlFor="street">Street address *</Label>
+          <input
+            id="street"
+            name="street_address"
+            className="flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base placeholder:text-gray-400 focus:border-primary-600 focus:outline-none aria-[invalid=true]:border-error-500"
+            placeholder="House #, Street, Subdivision"
+            value={props.street}
+            aria-invalid={!!props.textErrors.street_address}
+            onChange={(e) => props.onText({ street_address: e.target.value })}
+          />
+          <FieldError message={props.textErrors.street_address} />
+        </div>
+      )}
+      {!props.areaOnly && (
+        <div className="sm:col-span-2">
+          <Label htmlFor="landmark">Landmark *</Label>
+          <input
+            id="landmark"
+            name="landmark"
+            className="flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base placeholder:text-gray-400 focus:border-primary-600 focus:outline-none aria-[invalid=true]:border-error-500"
+            placeholder="e.g., Near McDonald's, green gate"
+            value={props.landmark}
+            aria-invalid={!!props.textErrors.landmark}
+            onChange={(e) => props.onText({ landmark: e.target.value })}
+          />
+          <FieldError message={props.textErrors.landmark} />
+        </div>
+      )}
     </div>
   );
 }

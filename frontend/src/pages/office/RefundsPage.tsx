@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { useRefundMutation, useRefunds } from "@/hooks/useOffice";
@@ -86,15 +87,16 @@ function RefundCard({ refund }: { refund: Refund }) {
   const review = useRefundMutation().review;
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const canReview = me?.role === "owner" || me?.can_execute_refunds;
-  const decide = async (action: "approve" | "deny") => {
+  const decide = async (action: "approve" | "deny", reason: string) => {
     setBusy(true);
     try {
       await review.mutateAsync({
         id: refund.id,
         payload: action === "approve"
-          ? { action, admin_notes: note || undefined }
-          : { action, denial_reason: note || undefined },
+          ? { action, admin_notes: reason || undefined }
+          : { action, denial_reason: reason },
       });
       toast.success(action === "approve" ? "Refund approved & executed" : "Refund denied");
       setNote("");
@@ -128,15 +130,30 @@ function RefundCard({ refund }: { refund: Refund }) {
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Note or denial reason…"
-            aria-label="Review note"
+            placeholder="Approval note (optional)…"
+            aria-label="Approval note"
             className="flex-1"
           />
           <div className="flex gap-2">
-            <Button size="sm" disabled={busy} onClick={() => void decide("approve")}>
+            <Button size="sm" disabled={busy}
+              onClick={() => setConfirm({
+                title: `Approve refund #${refund.id}?`,
+                body: <>Send <strong className="font-technical">₱{Number(refund.refund_amount).toFixed(2)}</strong> back for booking #{refund.booking_id}. This moves real money and is logged.</>,
+                confirmLabel: "Approve & Execute",
+                destructive: true,
+                onConfirm: () => decide("approve", note),
+              })}>
               Approve & Execute
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => void decide("deny")}>
+            <Button size="sm" variant="outline" disabled={busy}
+              onClick={() => setConfirm({
+                title: `Deny refund #${refund.id}?`,
+                body: <>The proposal closes and the requester is notified.</>,
+                confirmLabel: "Deny Refund",
+                destructive: true,
+                requireReason: "Denial reason",
+                onConfirm: (reason) => decide("deny", reason),
+              })}>
               Deny
             </Button>
           </div>
@@ -145,6 +162,7 @@ function RefundCard({ refund }: { refund: Refund }) {
       {refund.status === "proposed" && !canReview && (
         <p className="mt-2 text-xs text-gray-500">Awaiting owner review.</p>
       )}
+      <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

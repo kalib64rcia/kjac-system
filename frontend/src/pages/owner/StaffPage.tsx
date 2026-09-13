@@ -6,6 +6,7 @@ import { Loader2, Send } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import {
@@ -72,7 +73,9 @@ function StaffRow({ user }: { user: OfficeUser }) {
   const me = useAuthStore((s) => s.user);
   const { setStatus, review, updateRole } = useUserMutation();
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const isSelf = me?.email === user.email;
+  const fullName = `${user.first_name} ${user.last_name}`.trim();
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -84,58 +87,89 @@ function StaffRow({ user }: { user: OfficeUser }) {
       setBusy(false);
     }
   };
+  const denyWithReason = async (id: number, reason: string) => {
+    await review.mutateAsync({ id, action: "deny" });
+    toast.success(`Denied: ${reason}`);
+  };
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:flex-row sm:items-center">
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-gray-900">
-          {user.first_name} {user.last_name}
-          {isSelf && <span className="ml-2 text-xs font-normal text-gray-500">(you)</span>}
-        </p>
-        <p className="truncate text-sm text-gray-500">{user.email}{user.position ? ` · ${user.position}` : ""}</p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          <Badge variant={user.role === "owner" ? "default" : "secondary"}>{user.role}</Badge>
-          <Badge variant={user.status === "active" ? "success" : user.status === "pending_approval" ? "warning" : "secondary"}>
-            {user.status.replace("_", " ")}
-          </Badge>
-          {user.can_approve_technicians && <Badge variant="info">tech approvals</Badge>}
-          {user.can_execute_refunds && <Badge variant="info">refunds</Badge>}
-          {user.can_view_audit && <Badge variant="info">audit</Badge>}
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-gray-900">
+            {fullName}
+            {isSelf && <span className="ml-2 text-xs font-normal text-gray-500">(you)</span>}
+          </p>
+          <p className="truncate text-sm text-gray-500">{user.email}{user.position ? ` · ${user.position}` : ""}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <Badge variant={user.role === "owner" ? "default" : "secondary"}>{user.role}</Badge>
+            <Badge variant={user.status === "active" ? "success" : user.status === "pending_approval" ? "warning" : "secondary"}>
+              {user.status.replace("_", " ")}
+            </Badge>
+            {user.gender && <Badge variant="secondary">{user.gender}</Badge>}
+            {!user.gender && (user.role === "staff" || user.role === "technician") && (
+              <Badge variant="warning">gender not specified</Badge>
+            )}
+            {user.can_approve_technicians && <Badge variant="info">tech approvals</Badge>}
+            {user.can_execute_refunds && <Badge variant="info">refunds</Badge>}
+            {user.can_view_audit && <Badge variant="info">audit</Badge>}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {user.status === "pending_approval" && user.role === "staff" && (
+            <>
+              <Button size="sm" disabled={busy}
+                onClick={() => setConfirm({
+                  title: `Approve ${fullName}?`,
+                  body: <>They will sign in as <strong>staff{user.position ? ` · ${user.position}` : ""}</strong> with the grants currently set. This is logged.</>,
+                  confirmLabel: "Approve Staff",
+                  onConfirm: () => run(
+                    () => review.mutateAsync({ id: user.id, action: "approve" }),
+                    "Staff approved",
+                  ),
+                })}>
+                Approve
+              </Button>
+              <Button size="sm" variant="outline" disabled={busy}
+                onClick={() => setConfirm({
+                  title: `Deny ${fullName}?`,
+                  body: <>Their application closes and they cannot sign in. They will be notified.</>,
+                  confirmLabel: "Deny Application",
+                  destructive: true,
+                  requireReason: "Denial reason",
+                  onConfirm: (reason) => denyWithReason(user.id, reason),
+                })}>
+                Deny
+              </Button>
+            </>
+          )}
+          {user.status === "active" && !isSelf && (
+            <Button size="sm" variant="outline" disabled={busy}
+              onClick={() => setConfirm({
+                title: `Suspend ${fullName}?`,
+                body: <>They lose access <strong>immediately</strong>, including any open session on next check. Reversible via Reactivate.</>,
+                confirmLabel: "Suspend",
+                destructive: true,
+                onConfirm: () => run(
+                  () => setStatus.mutateAsync({ id: user.id, status: "suspended" }),
+                  "Staff suspended",
+                ),
+              })}>
+              Suspend
+            </Button>
+          )}
+          {user.status === "suspended" && (
+            <Button size="sm" variant="outline" disabled={busy}
+              onClick={() => void run(
+                () => setStatus.mutateAsync({ id: user.id, status: "active" }),
+                "Staff reactivated",
+              )}>
+              Reactivate
+            </Button>
+          )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {user.status === "pending_approval" && user.role === "staff" && (
-          <>
-            <Button size="sm" disabled={busy}
-              onClick={() => void run(() => review.mutateAsync({ id: user.id, action: "approve" }), "Staff approved")}>
-              Approve
-            </Button>
-            <Button size="sm" variant="outline" disabled={busy}
-              onClick={() => void run(() => review.mutateAsync({ id: user.id, action: "deny" }), "Application denied")}>
-              Deny
-            </Button>
-          </>
-        )}
-        {user.status === "active" && !isSelf && (
-          <Button size="sm" variant="outline" disabled={busy}
-            onClick={() => void run(
-              () => setStatus.mutateAsync({ id: user.id, status: "suspended" }),
-              "Staff suspended",
-            )}>
-            Suspend
-          </Button>
-        )}
-        {user.status === "suspended" && (
-          <Button size="sm" variant="outline" disabled={busy}
-            onClick={() => void run(
-              () => setStatus.mutateAsync({ id: user.id, status: "active" }),
-              "Staff reactivated",
-            )}>
-            Reactivate
-          </Button>
-        )}
-      </div>
       {user.role === "staff" && user.status === "active" && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-gray-100 pt-3 sm:w-full">
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-100 pt-3">
           {GRANTS.map((g) => (
             <label key={g.key} className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-gray-700">
               <input
@@ -153,6 +187,7 @@ function StaffRow({ user }: { user: OfficeUser }) {
           ))}
         </div>
       )}
+      <ConfirmDialog spec={confirm} onClose={() => setConfirm(null)} />
     </div>
   );
 }

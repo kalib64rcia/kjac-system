@@ -206,7 +206,11 @@ async def test_staff_invite_lifecycle(
             "token": _token_from_link(link),
             "first_name": "Nina", "last_name": "Ews",
             "email": "newstaff@example.com", "phone": "09170004444",
-            "position": "Dispatcher",
+            "position": "Dispatcher", "gender": "female",
+            "date_of_birth": "1994-08-20",
+            "region_code": "04", "province_code": "0434",
+            "city_municipality_code": "043406", "barangay_code": "043406001",
+            "privacy_consent": True,
         },
     )
     assert accept.status_code == 201, accept.text
@@ -217,6 +221,8 @@ async def test_staff_invite_lifecycle(
     )).scalar_one()
     assert row.role == "staff"
     assert row.position == "Dispatcher"
+    assert row.gender == "female"
+    assert row.data_privacy_consented_at is not None
 
     # Staff cannot approve staff — owner only.
     _as(subject, "ana@example.com", STAFF_UUID)
@@ -421,3 +427,112 @@ async def test_me_carries_grants_and_position(
     assert body["position"] == "Dispatcher"
     assert body["can_execute_refunds"] is True
     assert body["can_approve_technicians"] is False
+
+
+def _staff_form(token: str, email: str, **overrides: object) -> dict:
+    form: dict[str, object] = {
+        "token": token,
+        "first_name": "Test", "last_name": "User",
+        "email": email, "phone": "09170007777",
+        "position": "Clerk", "gender": "male",
+        "date_of_birth": "1996-01-15",
+        "region_code": "04", "province_code": "0434",
+        "city_municipality_code": "043406", "barangay_code": "043406001",
+        "privacy_consent": True,
+    }
+    form.update(overrides)
+    return form
+
+
+async def test_accept_enforces_gender_consent_adult(
+    pg_roles: tuple[AsyncClient, dict, AsyncSession],
+) -> None:
+    client, _, _ = pg_roles
+    await _invite_staff(client, email="enforce@example.com")
+    mailer: FakeMailer = client.mailer  # type: ignore[attr-defined]
+    token = _token_from_link(mailer.last_link())
+
+    no_gender = await client.post(
+        "/v1/auth/staff/accept",
+        json=_staff_form(token, "enforce@example.com", gender=None),
+    )
+    # None gender fails Literal validation.
+    assert no_gender.status_code == 422, no_gender.text
+
+    no_consent = await client.post(
+        "/v1/auth/staff/accept",
+        json=_staff_form(token, "enforce@example.com", privacy_consent=False),
+    )
+    assert no_consent.status_code == 422, no_consent.text
+
+    minor = await client.post(
+        "/v1/auth/staff/accept",
+        json=_staff_form(token, "enforce@example.com", date_of_birth="2015-06-01"),
+    )
+    assert minor.status_code == 422, minor.text
+
+
+async def test_invite_resume_states(
+    pg_roles: tuple[AsyncClient, dict, AsyncSession],
+) -> None:
+    client, subject, session = pg_roles
+    await _invite_staff(client, email="resume@example.com")
+    mailer: FakeMailer = client.mailer  # type: ignore[attr-defined]
+    token = _token_from_link(mailer.last_link())
+
+    async def state(t: str) -> dict:
+        response = await client.get("/v1/auth/staff/invite-state", params={"token": t})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    assert (await state(token))["state"] == "new"
+    assert (await state("bogus-token"))["state"] == "invalid"
+
+    # Abandoned after form: pending row, no login -> needs_login (resumable).
+    assert (await client.post(
+        "/v1/auth/staff/accept", json=_staff_form(token, "resume@example.com")
+    )).status_code == 201
+    assert (await state(token))["state"] == "needs_login"
+
+    # Idempotent retry returns the same pending row.
+    again = await client.post(
+        "/v1/auth/staff/accept", json=_staff_form(token, "resume@example.com")
+    )
+    assert again.status_code == 201
+
+    # Simulate linked login -> waiting approval; approve -> decided.
+    row = (await session.execute(
+        select(User).where(User.email == "resume@example.com")
+    )).scalar_one()
+    row.uuid = uuid.uuid4()
+    await session.commit()
+    assert (await state(token))["state"] == "waiting_approval"
+
+    _as(subject, "owner@example.com", OWNER_UUID)
+    assert (await client.patch(
+        f"/v1/admin/users/{row.id}/approval", json={"action": "approve"},
+        headers=_owner_headers())).status_code == 200
+    decided = await state(token)
+    assert decided["state"] == "decided"
+    assert decided["status"] == "active"
+
+
+async def test_workforce_stats(
+    pg_roles: tuple[AsyncClient, dict, AsyncSession],
+) -> None:
+    client, subject, session = pg_roles
+    session.add(User(
+        uuid=uuid.uuid4(), first_name="Tess", last_name="Tech",
+        email="tess@example.com", phone="09170008888",
+        role="technician", status="active", gender="female",
+        email_verified_at=datetime.now(UTC),
+    ))
+    await session.commit()
+
+    _as(subject, "ana@example.com", STAFF_UUID)
+    response = await client.get("/v1/admin/users/workforce-stats", headers=_staff_headers())
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["by_role_gender"]["owner"] == {"not_specified": 1}
+    assert body["by_role_gender"]["staff"]["not_specified"] == 2
+    assert body["by_role_gender"]["technician"] == {"female": 1}

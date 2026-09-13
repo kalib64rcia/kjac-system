@@ -210,15 +210,20 @@ async def test_accept_full_cycle(pg5: tuple[AsyncClient, dict, AsyncSession]) ->
     form = {
         "token": token, "first_name": "Pedro", "last_name": "Santos",
         "email": "tech5@example.com", "phone": "09171234567",
-        "street_address": "123 Narra St", "landmark": "Near church",
+        "position": "Installer", "gender": "male", "date_of_birth": "1995-04-12",
+        "region_code": "04", "province_code": "0434",
+        "city_municipality_code": "043406", "barangay_code": "043406001",
+        "privacy_consent": True,
     }
     accepted = await client.post("/v1/auth/technician/accept", json=form)
     assert accepted.status_code == 201, accepted.text
     assert accepted.json()["status"] == "pending_approval"
     tech_id = accepted.json()["id"]
 
+    # Idempotent retry: same token + email refreshes instead of conflicting.
     reuse = await client.post("/v1/auth/technician/accept", json=form)
-    assert reuse.status_code == 400
+    assert reuse.status_code == 201, reuse.text
+    assert reuse.json()["id"] == tech_id
 
     stored = await session.get(User, tech_id)
     assert stored is not None
@@ -249,10 +254,16 @@ async def test_accept_rejects_mismatch_and_expiry(
     client, _, session = pg5
     await _invite(client, email="mismatch@example.com")
     token = _token_from_link(_mailer(client).last_link())
+    base = {
+        "token": token, "first_name": "X", "last_name": "Y",
+        "phone": "09171234567", "gender": "male", "date_of_birth": "1995-04-12",
+        "region_code": "04", "province_code": "0434",
+        "city_municipality_code": "043406", "barangay_code": "043406001",
+        "privacy_consent": True,
+    }
     wrong = await client.post(
         "/v1/auth/technician/accept",
-        json={"token": token, "first_name": "X", "last_name": "Y",
-              "email": "other@example.com", "phone": "09171234567"},
+        json={**base, "email": "other@example.com"},
     )
     assert wrong.status_code == 400
 
@@ -267,7 +278,11 @@ async def test_accept_rejects_mismatch_and_expiry(
     stale = await client.post(
         "/v1/auth/technician/accept",
         json={"token": stale_token, "first_name": "X", "last_name": "Y",
-              "email": "stale@example.com", "phone": "09171234567"},
+              "email": "stale@example.com", "phone": "09171234567",
+              "gender": "female", "date_of_birth": "1995-04-12",
+              "region_code": "04", "province_code": "0434",
+              "city_municipality_code": "043406", "barangay_code": "043406001",
+              "privacy_consent": True},
     )
     assert stale.status_code == 400
 
@@ -312,7 +327,11 @@ async def test_resend_and_revoke(pg5: tuple[AsyncClient, dict, AsyncSession]) ->
     rotated = await client.post(
         "/v1/auth/technician/accept",
         json={"token": old_token, "first_name": "X", "last_name": "Y",
-              "email": "rere@example.com", "phone": "09171234567"},
+              "email": "rere@example.com", "phone": "09171234567",
+              "gender": "male", "date_of_birth": "1995-04-12",
+              "region_code": "04", "province_code": "0434",
+              "city_municipality_code": "043406", "barangay_code": "043406001",
+              "privacy_consent": True},
     )
     assert rotated.status_code == 400  # rotation killed the old token
 
@@ -325,7 +344,11 @@ async def test_resend_and_revoke(pg5: tuple[AsyncClient, dict, AsyncSession]) ->
     dead = await client.post(
         "/v1/auth/technician/accept",
         json={"token": new_token, "first_name": "X", "last_name": "Y",
-              "email": "rere@example.com", "phone": "09171234567"},
+              "email": "rere@example.com", "phone": "09171234567",
+              "gender": "male", "date_of_birth": "1995-04-12",
+              "region_code": "04", "province_code": "0434",
+              "city_municipality_code": "043406", "barangay_code": "043406001",
+              "privacy_consent": True},
     )
     assert dead.status_code == 400  # revoked
 
@@ -403,7 +426,11 @@ async def test_sync_links_invite_row(pg5: tuple[AsyncClient, dict, AsyncSession]
     accepted = await client.post(
         "/v1/auth/technician/accept",
         json={"token": token, "first_name": "Link", "last_name": "Me",
-              "email": "linkme@example.com", "phone": "09173334444"},
+              "email": "linkme@example.com", "phone": "09173334444",
+              "gender": "female", "date_of_birth": "1993-11-02",
+              "region_code": "04", "province_code": "0434",
+              "city_municipality_code": "043406", "barangay_code": "043406001",
+              "privacy_consent": True},
     )
     assert accepted.status_code == 201
 

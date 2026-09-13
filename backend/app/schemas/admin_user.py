@@ -13,6 +13,7 @@ class AdminUserResponse(BaseModel):
     role: str
     status: str
     position: str | None = None
+    gender: str | None = None
     can_approve_technicians: bool = False
     can_execute_refunds: bool = False
     can_view_audit: bool = False
@@ -39,6 +40,7 @@ class RoleUpdate(BaseModel):
 
     role: str | None = Field(default=None, pattern=r"^(owner|staff)$")
     position: str | None = Field(default=None, max_length=100)
+    gender: str | None = Field(default=None, pattern=r"^(male|female)$")
     can_approve_technicians: bool | None = None
     can_execute_refunds: bool | None = None
     can_view_audit: bool | None = None

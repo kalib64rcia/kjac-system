@@ -2,6 +2,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -52,12 +53,14 @@ function DialogContent({
         onEscapeKeyDown={onClose ? () => onClose() : undefined}
         onPointerDownOutside={onClose ? () => onClose() : undefined}
         className={cn(
-          "fixed left-1/2 top-1/2 z-[70] grid max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-lg data-[state=open]:animate-fade-in sm:p-6",
+          "fixed left-1/2 top-1/2 z-[70] flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden overscroll-contain rounded-xl bg-white shadow-lg data-[state=open]:animate-fade-in",
           className,
         )}
         {...props}
       >
-        {children}
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="grid gap-4 p-5 sm:p-6">{children}</div>
+        </ScrollArea>
         <DialogPrimitive.Close
           aria-label="Close dialog"
           onClick={onClose}

@@ -63,21 +63,42 @@ function SheetContent({
         onEscapeKeyDown={onClose}
         onPointerDownOutside={onClose ? () => onClose() : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-[70] flex w-[80%] max-w-[320px] flex-col overflow-y-auto overscroll-contain bg-white shadow-xl data-[state=open]:animate-drawer-in",
+          "thin-scroll fixed inset-y-0 left-0 z-[70] flex w-[86%] max-w-[360px] flex-col overflow-y-auto overscroll-contain bg-white shadow-xl data-[state=open]:animate-drawer-in",
           className,
         )}
         {...props}
       >
         {children}
-        <SheetPrimitive.Close
-          aria-label="Close menu"
-          onClick={onClose}
-          className="absolute right-3 top-3 flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
-        >
-          <X size={20} />
-        </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPrimitive.Portal>
+  );
+}
+
+/** In-flow close button: render as the LAST child of the drawer's header
+ *  row (which must be items-center). Alignment is then structural — no
+ *  absolute offsets to drift when header heights change. */
+function SheetCloseButton({
+  className,
+  label = "Close menu",
+  onClose,
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Close> & {
+  label?: string;
+  onClose?: () => void;
+}) {
+  return (
+    <SheetPrimitive.Close
+      data-slot="sheet-close-button"
+      aria-label={label}
+      onClick={onClose}
+      className={cn(
+        "ml-auto flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-100",
+        className,
+      )}
+      {...props}
+    >
+      <X size={20} aria-hidden="true" />
+    </SheetPrimitive.Close>
   );
 }
 
@@ -131,6 +152,7 @@ export {
   Sheet,
   SheetTrigger,
   SheetClose,
+  SheetCloseButton,
   SheetPortal,
   SheetOverlay,
   SheetContent,
