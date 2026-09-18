@@ -25,6 +25,53 @@ Supersedes contradictory lines in FLOW_*/API/DATABASE docs until those are patch
 - Mon–Sat only (Sunday blocked unless `allow_sunday_bookings=true`).
 - Same-day allowed only before 12:00 Manila; otherwise min tomorrow; max +30 days.
 
+## C9 — Public availability display (Phase A scheduling)
+- Public states only: `open` / `low` / `full` / `closed`. Thresholds and
+  counts never leave the server (`GET /v1/slots/availability` returns
+  date, time, state — nothing else).
+- Public allocation = real seats minus `slot_house_reserve` (walk-ins and
+  regulars; owner-tunable). `low` = at most `slot_low_threshold` public
+  seats left AND something taken (untouched slots read `open`).
+- A seat is occupied by `submitted`/`pending`/`confirmed`/`ongoing`
+  bookings plus live guest holds; cancelled/expired/completed/rescheduled
+  free it. Submit re-checks under a per-slot lock: last seat raced =
+  409 `BOOKING_006`, expired hold = 409 `BOOKING_003`.
+- Guest holds (`POST /v1/slots/holds`, 10-minute life via
+  `slot_hold_minutes`) lock a seat while details are typed; expired holds
+  are deleted on write. `slot_availability()` is the single seam Phase D
+  enriches (roster, travel) without changing callers.
+- Reserve never closes the last seat (a one-tech shop stays bookable; set
+  `slot_house_reserve` 0 to off). Zero active technicians = everything
+  full — deactivating the crew pauses online intake by design.
+- Fixable input errors (422) always read before situational 409s, so users
+  chase the right problem (profile/address before "just filled").
+- Hybrid windows (industry standard for home visits): guests pick Morning
+  (arrive 8–12) or Afternoon (arrive 12–4); the anchor hour (08:00/12:00)
+  is stored in `preferred_time` with `flex_window` set, so board, tracking,
+  and validation work untouched. Exact hours stay behind a toggle for
+  estimates and follow-ups.
+- A window booking counts against every slot in its window (never
+  oversells); submit needs any room left in the window. Dispatch places the
+  exact hour via `PATCH /admin/bookings/{id}/set-slot` — same promised day
+  and window only (anything else is the customer reschedule flow),
+  guard-checked, audit-logged, customer emailed. Window promise never
+  breaks; "on the way" + tech first name narrows it day-of.
+- Phase B: office vacancy (`GET /v1/admin/slots/vacancy`) reuses the same
+  counters plus the numbers (capacity/booked/holds/left) — office eyes
+  only. Waitlist takes full days only (email required, daily cap);
+  an offer is a guard-checked hold (default 24h) + emailed booking link —
+  no room, no offer. Reminders (tomorrow + payment-expiring) are
+  settings-toggled, payment nudges stamped so they never resend.
+- Phase D: capacity = techs on shift that day (weekly template, default
+  all-working, minus leave ranges). No template/leave rows = legacy
+  headcount — deactivating the crew still pauses intake; scheduling
+  someone off (or on leave) tightens only their days. Sundays stay
+  globally closed regardless of roster.
+- Day plan (replaces travel-as-capacity, retired): the office sequences
+  one day manually (`POST /admin/bookings/day-order`, listed ids take
+  1..n, rest unordered by time). No auto-routing — the system stores
+  the order, the office owns the roads. 1 booking = 1 slot, unchanged.
+
 ## C6 — Rejected payment
 - Reject → booking reverts `pending` → `submitted` with fresh `expires_at = now + 3h`; payment row marked `rejected` with reason; customer notified with re-upload link.
 
@@ -134,3 +181,10 @@ Supersedes contradictory lines in FLOW_*/API/DATABASE docs until those are patch
 - Settings: list + patch with type coercion and `is_editable` guard.
   Analytics dashboard per API.md shape with concrete chart items.
 - FLOW_AUTH/FLOW_TECHNICIAN self-registration flows intentionally unimplemented.
+
+## C10 - Public identifiers: unguessable, never sequential
+- Public URL keys are UUID4 (`payments.uuid`) or server-generated refs
+  (`KJAC-YYYY-XXXXXX`, C4). Sequential integer ids never appear in public routes.
+- UUIDs layer on ownership checks (`assert_owner`, uniform 404s), never replace them.
+- Admin routes keep integer ids behind 2FA + role (documented trust boundary).
+- New endpoints follow the same split; no secrets or PII in new URL params.

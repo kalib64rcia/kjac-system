@@ -4,7 +4,7 @@ import { AboutSection } from "@/components/public/AboutSection";
 import { AnnouncementBar } from "@/components/public/AnnouncementBar";
 import { BrandsSection } from "@/components/public/BrandsSection";
 import { ContactSection } from "@/components/public/ContactSection";
-import { Blobs, Reveal } from "@/components/public/Decor";
+import { Reveal } from "@/components/public/Decor";
 import { Faq } from "@/components/public/Faq";
 import { Footer } from "@/components/public/Footer";
 import { GuidesGrid } from "@/components/public/GuidesGrid";
@@ -36,12 +36,7 @@ export function HomePage() {
       <PromoBand />
       {content.show_faq && <Faq items={content.faq_items} />}
       <ContactSection content={content} />
-      <div className="relative overflow-hidden">
-        <Blobs variant="mono" />
-        <div className="relative">
-          <Footer content={content} />
-        </div>
-      </div>
+      <Footer content={content} />
     </>
   );
 }

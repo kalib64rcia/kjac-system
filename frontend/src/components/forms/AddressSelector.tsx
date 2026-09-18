@@ -1,14 +1,7 @@
-import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import { useBarangays, useCities, useProvinces, useRegions } from "@/hooks/usePublic";
 import { FieldError, Label } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FilterPopover } from "@/components/shared/FilterPopover";
 import type { PsgcItem } from "@/types/catalog.types";
 
 interface AddressSelectorProps {
@@ -40,6 +33,10 @@ function CascadeSelect({
   onValueChange,
   error,
   required = true,
+  /** Shown as the only option when the parent has zero children (e.g. NCR → No province). */
+  noneLabel,
+  /** The parent level is picked (so an empty result means "none", not "not yet"). */
+  parentPicked,
 }: {
   id: string;
   label: string;
@@ -54,31 +51,35 @@ function CascadeSelect({
   onValueChange: (v: string) => void;
   error?: string;
   required?: boolean;
+  noneLabel: string;
+  parentPicked: boolean;
 }) {
+  // Childless level (loaded fine, zero children): "No X" is the input.
+  const showNone =
+    parentPicked && !loading && !loadError && (items?.length ?? 0) === 0;
+  const effectiveItems = showNone
+    ? [{ code: "", name: noneLabel } as PsgcItem]
+    : items;
+  useEffect(() => {
+    if (showNone && value !== "") onValueChange("");
+  }, [showNone, value]);
+  const selectedName = (effectiveItems ?? []).find((item) => item.code === value)?.name;
+  const display = loading ? "Loading…" : (selectedName ?? (disabled ? disabledHint : placeholder));
   return (
     <div>
       <Label htmlFor={id}>{label} {required && "*"}</Label>
-      <Select value={value} onValueChange={onValueChange} disabled={disabled || loading}>
-        <SelectTrigger id={id} aria-invalid={!!error} aria-busy={loading}>
-          {loading ? (
-            <span className="flex min-w-0 flex-1 items-center gap-2 text-gray-500">
-              <Loader2 size={16} aria-hidden="true" className="size-4 shrink-0 animate-spin" />
-              <span className="truncate">Loading…</span>
-            </span>
-          ) : (
-            <SelectValue placeholder={disabled ? disabledHint : placeholder} />
-          )}
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-          {(items ?? []).map((item) => (
-            <SelectItem key={item.code} value={item.code} title={item.name}>
-              {item.name}
-            </SelectItem>
-          ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      <FilterPopover
+        id={id}
+        fluid
+        allowClear={false}
+        label={label.toLowerCase()}
+        display={display}
+        options={(effectiveItems ?? []).map((item) => ({ id: item.code, name: item.name }))}
+        isLoading={loading}
+        value={value}
+        onPick={onValueChange}
+        disabled={disabled || loading}
+      />
       {loadError && !loading && (
         <p className="mt-1.5 text-sm text-error-600">
           Couldn&apos;t load options.{" "}
@@ -97,8 +98,16 @@ export function AddressSelector(props: AddressSelectorProps) {
   const { region, province, city, barangay, onChange, errors } = props;
   const regions = useRegions();
   const provinces = useProvinces(region);
-  const cities = useCities(province);
-  const barangays = useBarangays(city);
+  // Childless region (e.g. NCR): cities load straight from the region.
+  const provincesEmpty =
+    !!region && !provinces.isLoading && !provinces.isError &&
+    (provinces.data?.length ?? 0) === 0;
+  const cityParent = province || (provincesEmpty ? region : null);
+  const cities = useCities(province || null, provincesEmpty ? region : null);
+  const citiesEmpty =
+    !!cityParent && !cities.isLoading && !cities.isError &&
+    (cities.data?.length ?? 0) === 0;
+  const barangays = useBarangays(city || null);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -115,6 +124,8 @@ export function AddressSelector(props: AddressSelectorProps) {
         items={regions.data}
         onValueChange={(v) => onChange({ region: v, province: "", city: "", barangay: "" })}
         error={errors.region_code}
+        noneLabel="No region"
+        parentPicked={false}
       />
       <CascadeSelect
         id="province"
@@ -129,20 +140,24 @@ export function AddressSelector(props: AddressSelectorProps) {
         items={provinces.data}
         onValueChange={(v) => onChange({ province: v, city: "", barangay: "" })}
         error={errors.province_code}
+        noneLabel="No province"
+        parentPicked={!!region}
       />
       <CascadeSelect
         id="city"
         label="City / Municipality"
         value={city ?? ""}
         placeholder="Select city"
-        disabledHint="Select a province first"
-        disabled={!province}
-        loading={!!province && cities.isLoading}
-        loadError={!!province && cities.isError}
+        disabledHint={provincesEmpty ? "Select a region first" : "Select a province first"}
+        disabled={!cityParent}
+        loading={!!cityParent && cities.isLoading}
+        loadError={!!cityParent && cities.isError}
         onRetry={() => void cities.refetch()}
         items={cities.data}
         onValueChange={(v) => onChange({ city: v, barangay: "" })}
         error={errors.city_municipality_code}
+        noneLabel="No city"
+        parentPicked={!!cityParent}
       />
       <CascadeSelect
         id="barangay"
@@ -150,13 +165,15 @@ export function AddressSelector(props: AddressSelectorProps) {
         value={barangay}
         placeholder="Select barangay"
         disabledHint="Select a city first"
-        disabled={!city}
-        loading={!!city && barangays.isLoading}
-        loadError={!!city && barangays.isError}
+        disabled={!city && !citiesEmpty}
+        loading={(!!city || citiesEmpty) && barangays.isLoading}
+        loadError={(!!city || citiesEmpty) && barangays.isError}
         onRetry={() => void barangays.refetch()}
         items={barangays.data}
         onValueChange={(v) => onChange({ barangay: v })}
         error={errors.barangay_code}
+        noneLabel="No barangay"
+        parentPicked={!!city || citiesEmpty}
       />
       {!props.areaOnly && (
         <div className="sm:col-span-2">

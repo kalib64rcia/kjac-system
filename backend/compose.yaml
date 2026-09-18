@@ -1,0 +1,27 @@
+# Local dev database for the KJAC backend.
+# Usage:  docker compose up -d   (from backend/)
+#         alembic upgrade head
+#         uvicorn app.main:app --reload --port 8000
+# .env points at this DB; the Supabase URL lives in .env.staging.
+services:
+  db:
+    image: postgres:17
+    container_name: kjac-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kjac_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - kjac-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kjac_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  kjac-pgdata:

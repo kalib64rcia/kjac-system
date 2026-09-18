@@ -1,29 +1,73 @@
+﻿import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { trackSchema, type TrackFormValues } from "@/schemas/booking.schema";
+import { toast } from "@/stores/toast.store";
+import { useLocalStorageDraft } from "@/hooks/useLocalStorageDraft";
 
 /** Reference + email search (R1 proof). */
 export function TrackSearch({
-  initial,
   pending,
   onSearch,
 }: {
-  initial: { reference_id: string; email: string };
   pending: boolean;
   onSearch: (values: TrackFormValues) => void;
 }) {
-  const { register, handleSubmit, formState } = useForm<TrackFormValues>({
+  const { loadDraft, hasMeaningfulData, draftToastShown } = useLocalStorageDraft(
+    'kjac-track-draft',
+    { reference_id: "", email: "" },
+    (data) => !!(data.reference_id?.trim() || data.email?.trim())
+  );
+
+  const { register, handleSubmit, formState, reset, watch } = useForm<TrackFormValues>({
     resolver: zodResolver(trackSchema),
-    defaultValues: initial,
+    defaultValues: loadDraft(),
+    mode: "onSubmit",
   });
+
+  const tracked = watch();
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem('kjac-track-draft', JSON.stringify(tracked));
+      } catch {
+        /* ignore */
+      }
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [tracked]);
+
+  useEffect(() => {
+    try {
+      if (!draftToastShown.current && hasMeaningfulData()) {
+        draftToastShown.current = true;
+        toast.info("Search restored", "Your previous search was restored.");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [draftToastShown, hasMeaningfulData]);
 
   const submit = handleSubmit(onSearch, () => {
     document
       .querySelector<HTMLElement>('#track-ref[aria-invalid="true"], #track-email[aria-invalid="true"]')
       ?.focus();
   });
+
+  const onClear = () => {
+    const hadData = hasMeaningfulData();
+    reset({ reference_id: "", email: "" });
+    try {
+      localStorage.removeItem('kjac-track-draft');
+    } catch {
+      /* ignore */
+    }
+    if (hadData) {
+      toast.success("Search cleared", "All fields have been reset.");
+    }
+  };
 
   return (
     <form onSubmit={(e) => void submit(e)} noValidate aria-label="Track booking">
@@ -32,7 +76,7 @@ export function TrackSearch({
           <Label htmlFor="track-ref">Booking reference ID *</Label>
           <Input
             id="track-ref"
-            placeholder="KJAC-2026-XXXXXX"
+            placeholder="KJAC-YYYY-XXXXXX"
             autoComplete="off"
             spellCheck={false}
             className="font-technical uppercase"
@@ -55,9 +99,14 @@ export function TrackSearch({
           <FieldError message={formState.errors.email?.message} />
         </div>
       </div>
-      <Button type="submit" className="mt-4 w-full sm:w-auto" disabled={pending}>
-        {pending ? "Tracking…" : "Track Booking"}
-      </Button>
+      <div className="mt-4 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Tracking…" : "Track Booking"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClear} disabled={pending}>
+          Clear
+        </Button>
+      </div>
       <p className="mt-2 text-sm text-gray-500">
         Your reference ID is in your booking confirmation. Both must match.
       </p>

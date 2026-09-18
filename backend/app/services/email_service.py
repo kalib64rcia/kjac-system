@@ -75,6 +75,38 @@ class EmailService:
             logger.warning("2FA email not delivered to %s (relay unreachable)", to)
         return sent
 
+    def send_booking_scheduled(self, to: str, reference_id: str, proposed_date: str, proposed_start_time: str) -> bool:
+        """Notify customer that admin has scheduled their booking.
+        
+        Args:
+            to: Customer email address
+            reference_id: Booking reference ID (e.g., KJAC-2026-ABC123)
+            proposed_date: Date in ISO format (e.g., 2026-09-20)
+            proposed_start_time: Start time in HH:MM format (e.g., 09:00)
+        """
+        # Format time to 12-hour format
+        from datetime import datetime as dt
+        time_obj = dt.strptime(proposed_start_time, "%H:%M").time()
+        time_12h = time_obj.strftime("%I:%M %p").lstrip("0")  # Remove leading zero from hour
+        
+        # Format date in readable format
+        date_obj = dt.strptime(proposed_date, "%Y-%m-%d").date()
+        readable_date = date_obj.strftime("%B %d, %Y")
+        
+        body = (
+            f"Good news! Your booking {reference_id} has been scheduled.\n\n"
+            f"Proposed service date and time:\n"
+            f"{readable_date} at {time_12h}\n\n"
+            "Please make sure someone is home at that time. "
+            "We will send you a confirmation request shortly. "
+            "If you need to change the time, please reply to this email.\n\n"
+            "Thank you for choosing KJAC!"
+        )
+        sent = self.send(to, f"KJAC: Your booking {reference_id} is scheduled", body)
+        if not sent:
+            logger.warning("booking scheduled email not delivered to %s", to)
+        return sent
+
 
 def get_email_service() -> EmailService:
     return EmailService()

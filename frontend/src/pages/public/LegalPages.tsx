@@ -42,7 +42,7 @@ export function TermsPage() {
       title="Terms of Service"
       updated="September 2026"
       body={[
-        "By booking through this website you agree to provide accurate contact and address information and to pay the stated down payment within 3 hours of booking.",
+        "By booking through this website you agree to provide accurate contact and address information and to pay the stated down payment with GCash after the request is accepted.",
         "Advance cancellations receive a full automatic refund. Same-day undispatched cancellations require admin review; dispatched or ongoing jobs are non-refundable.",
         "Service schedules are confirmed after payment verification. Our team will contact you for access and coordination details.",
         INTERIM,

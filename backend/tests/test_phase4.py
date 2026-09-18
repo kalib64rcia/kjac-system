@@ -39,6 +39,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 TRUNCATE_TABLES = (
     "reschedule_requests, booking_inventory_usage,"
     " inventory_movements, messages, message_threads, notifications, ratings,"
+    " window_closures, booking_crew_members,"
     " refunds, payments, booking_status_history, bookings,"
     " payroll_records, commission_rules, employee_info, audit_logs,"
     " user_sessions, admin_two_fa_codes, inventory_items, service_images,"
@@ -70,6 +71,7 @@ async def pg4(
     tmp_path, monkeypatch, migrated_db
 ) -> AsyncIterator[tuple[AsyncClient, dict, AsyncSession]]:
     monkeypatch.setattr(settings, "storage_dir", str(tmp_path / "storage"))
+    monkeypatch.setattr(settings, "storage_backend", "local")
     try:
         limiter._storage.reset()  # type: ignore[attr-defined]
     except (AttributeError, NotImplementedError):
@@ -205,6 +207,11 @@ async def test_rating_lifecycle(
     assert wall.status_code == 200
     assert wall.json()["average_rating"] == 5.0
     assert wall.json()["total"] == 1
+    item = wall.json()["items"][0]
+    assert item["rating"] == 5
+    assert item["review_text"] == "Great work"
+    assert "customer_id" not in item
+    assert "booking_id" not in item
 
     subject["value"] = str(ADMIN_UUID)
     delete = await client.delete(

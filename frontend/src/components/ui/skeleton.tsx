@@ -21,14 +21,4 @@ function CardSkeleton() {
   );
 }
 
-function TableSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-gray-200" aria-busy="true" aria-label="Loading">
-      {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-12 rounded-none border-b border-gray-100 last:border-0" />
-      ))}
-    </div>
-  );
-}
-
-export { Skeleton, CardSkeleton, TableSkeleton };
+export { Skeleton, CardSkeleton };

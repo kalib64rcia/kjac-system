@@ -1,6 +1,6 @@
 import { ArrowUp, Snowflake } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/utils";
 
 function resolveTarget(targetId?: string): HTMLElement | null {
@@ -8,27 +8,39 @@ function resolveTarget(targetId?: string): HTMLElement | null {
   return document.getElementById(targetId);
 }
 
-/** Scroll-to-top: arrow → slow-spinning snowflake on hover, rocket spin on click.
- *  Scrolls the given viewport (app-shell pattern), falling back to window. */
+/** Scroll-to-top: spring entrance, hover lift with snowflake spin,
+ *  and launch pulse animation on click. Auto-hides when mobile drawer is open. */
 export function ScrollToTop({ targetId }: { targetId?: string }) {
   const [visible, setVisible] = useState(false);
   const [hover, setHover] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
 
   useEffect(() => {
     const el = resolveTarget(targetId);
+    let rafId: number | null = null;
+
     const onScroll = () => {
-      const y = el ? el.scrollTop : window.scrollY;
-      setVisible(y > 600);
-      if (y === 0) setLaunching(false);
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const y = el ? el.scrollTop : window.scrollY;
+        setVisible(y > 400);
+        if (y === 0) setLaunching(false);
+      });
     };
+
     onScroll();
     const target: HTMLElement | Window = el ?? window;
     target.addEventListener("scroll", onScroll, { passive: true });
-    return () => target.removeEventListener("scroll", onScroll);
-  }, [targetId]);
+    window.addEventListener("resize", onScroll, { passive: true });
 
-  if (!visible) return null;
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      target.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [targetId]);
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -42,39 +54,54 @@ export function ScrollToTop({ targetId }: { targetId?: string }) {
     }
   };
 
+  const isVisible = visible && !mobileNavOpen;
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={toTop}
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          onFocus={() => setHover(true)}
-          onBlur={() => setHover(false)}
-          aria-label="Scroll to top"
-          className="fixed bottom-6 right-6 z-40 flex min-h-[48px] min-w-[48px] cursor-pointer items-center justify-center rounded-full bg-primary-600 text-white shadow-lg transition hover:bg-primary-700 active:scale-95 [&_svg]:pointer-events-none"
-        >
-          <ArrowUp
-            size={22}
-            aria-hidden="true"
-            className={cn(
-              "transition-opacity duration-150",
-              hover || launching ? "opacity-0" : "opacity-100",
-            )}
-          />
-          <Snowflake
-            size={22}
-            aria-hidden="true"
-            className={cn(
-              "absolute inset-0 m-auto transition-opacity duration-150",
-              hover || launching ? "opacity-100" : "opacity-0",
-              launching ? "animate-spin-fast" : "animate-spin-slow",
-            )}
-          />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="left">Back to top</TooltipContent>
-    </Tooltip>
+    <div
+      className={cn(
+        "fixed bottom-6 right-6 z-40 transition-all duration-300 ease-out",
+        isVisible
+          ? "translate-y-0 scale-100 opacity-100 pointer-events-auto"
+          : "translate-y-4 scale-75 opacity-0 pointer-events-none",
+      )}
+    >
+      <button
+        type="button"
+        onClick={toTop}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onFocus={() => setHover(true)}
+        onBlur={() => setHover(false)}
+        aria-label="Scroll to top"
+        className={cn(
+          "group relative flex h-[48px] w-[48px] cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-primary-600 via-primary-500 to-primary-400 text-white shadow-lg shadow-primary-600/30 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-500/40 hover:ring-4 hover:ring-primary-400/20 active:scale-95 [&_svg]:pointer-events-none",
+          launching && "scale-105 shadow-primary-400/60 ring-4 ring-primary-300",
+        )}
+      >
+        {/* Launching Pulse Wave */}
+        {launching && (
+          <span className="absolute inset-0 rounded-full bg-primary-400/60 animate-ping pointer-events-none" />
+        )}
+
+        {/* Icons: Arrow Up & Snowflake */}
+        <ArrowUp
+          size={20}
+          aria-hidden="true"
+          className={cn(
+            "relative z-10 transition-all duration-200 group-hover:-translate-y-0.5",
+            hover || launching ? "scale-75 opacity-0" : "scale-100 opacity-100",
+          )}
+        />
+        <Snowflake
+          size={20}
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-0 m-auto z-10 transition-all duration-200",
+            hover || launching ? "scale-100 opacity-100" : "scale-75 opacity-0",
+            launching ? "animate-spin-fast text-white" : "animate-spin-slow text-white",
+          )}
+        />
+      </button>
+    </div>
   );
 }

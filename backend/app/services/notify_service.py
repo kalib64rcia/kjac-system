@@ -17,7 +17,7 @@ from app.models.users import User
 logger = logging.getLogger(__name__)
 
 EMAIL_TYPES = {
-    "booking_confirmed", "payment_verified", "payment_rejected",
+    "booking_confirmed", "booking_scheduled", "payment_verified", "payment_rejected",
     "service_completed", "booking_cancelled", "refund_approved",
     "refund_denied", "refund_completed", "reschedule_approved",
     "reschedule_denied",

@@ -44,6 +44,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 TRUNCATE_TABLES = (
     "staff_invites, technician_invites, reschedule_requests, booking_inventory_usage,"
     " inventory_movements, messages, message_threads, notifications, ratings,"
+    " window_closures, booking_crew_members,"
     " refunds, payments, booking_status_history, bookings,"
     " payroll_records, commission_rules, employee_info, audit_logs,"
     " user_sessions, admin_two_fa_codes, inventory_items, service_images,"
@@ -96,6 +97,7 @@ async def pg_roles(
     tmp_path, monkeypatch, migrated_db,
 ) -> AsyncIterator[tuple[AsyncClient, dict, AsyncSession]]:
     monkeypatch.setattr(settings, "storage_dir", str(tmp_path / "storage"))
+    monkeypatch.setattr(settings, "storage_backend", "local")
     try:
         limiter._storage.reset()  # type: ignore[attr-defined]
     except (AttributeError, NotImplementedError):

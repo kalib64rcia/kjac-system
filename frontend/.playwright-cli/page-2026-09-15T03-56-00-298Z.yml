@@ -1,0 +1,37 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "Bookings" [level=1] [ref=e6]
+    - paragraph [ref=e7]: Dispatch board — payment, technician, schedule.
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - paragraph [ref=e13]: Needs payment
+      - paragraph [ref=e14]: "0"
+      - paragraph [ref=e15]: Submitted, no receipt yet
+    - generic [ref=e23]:
+      - paragraph [ref=e24]: Needs technician
+      - paragraph [ref=e25]: "0"
+      - paragraph [ref=e26]: Confirmed work, no one assigned
+    - generic [ref=e33]:
+      - paragraph [ref=e34]: Scheduled today
+      - paragraph [ref=e35]: "0"
+      - paragraph [ref=e36]: Manila time
+    - generic [ref=e44]:
+      - paragraph [ref=e45]: Ongoing now
+      - paragraph [ref=e46]: "0"
+      - paragraph [ref=e47]: Technician on the job
+  - generic [ref=e51]:
+    - textbox "Search bookings" [ref=e53]:
+      - /placeholder: Search reference, name, email…
+    - button "Filter by statuses" [ref=e54] [cursor=pointer]:
+      - generic "All statuses (0)" [ref=e55]
+    - button "Filter by date" [ref=e57] [cursor=pointer]:
+      - generic [ref=e58]: All dates
+    - button "Filter by brands" [ref=e59] [cursor=pointer]:
+      - generic "All brands" [ref=e60]
+    - button "Filter by services" [ref=e61] [cursor=pointer]:
+      - generic "All services" [ref=e62]
+  - status [ref=e64]: Loading bookings…
+  - generic "Loading bookings" [ref=e66]:
+    - generic "Loading" [ref=e67]
+    - generic "Loading" [ref=e71]
+    - generic "Loading" [ref=e75]

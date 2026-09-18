@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { KeyRound, Loader2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Label, PasswordInput } from "@/components/ui/input";
 import { getSupabase } from "@/lib/supabase";
 
 const credentialSchema = z
@@ -29,6 +29,7 @@ export function CredentialStep({ email, onDone }: { email: string; onDone: () =>
   const { register, handleSubmit, formState } = useForm<CredentialValues>({
     resolver: zodResolver(credentialSchema),
     defaultValues: { password: "", confirm: "" },
+    mode: "onSubmit",
   });
 
   const submit = handleSubmit(async (v) => {
@@ -70,7 +71,7 @@ export function CredentialStep({ email, onDone }: { email: string; onDone: () =>
           type="button"
           onClick={() => void resend()}
           disabled={resending}
-          className="mt-3 min-h-[44px] cursor-pointer text-sm font-semibold text-primary-600 hover:underline disabled:opacity-50"
+          className="mt-3 min-h-[44px] cursor-pointer text-sm font-semibold text-primary-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
         >
           {resending ? "Resending…" : "Resend confirmation email"}
         </button>
@@ -98,14 +99,14 @@ export function CredentialStep({ email, onDone }: { email: string; onDone: () =>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="cred-password">Password *</Label>
-          <Input id="cred-password" type="password" placeholder="At least 8 characters"
+          <PasswordInput id="cred-password" placeholder="At least 8 characters"
             autoComplete="new-password"
             aria-invalid={!!formState.errors.password} {...register("password")} />
           <FieldError message={formState.errors.password?.message} />
         </div>
         <div>
           <Label htmlFor="cred-confirm">Repeat password *</Label>
-          <Input id="cred-confirm" type="password" placeholder="Repeat the password"
+          <PasswordInput id="cred-confirm" placeholder="Repeat the password"
             autoComplete="new-password"
             aria-invalid={!!formState.errors.confirm} {...register("confirm")} />
           <FieldError message={formState.errors.confirm?.message} />

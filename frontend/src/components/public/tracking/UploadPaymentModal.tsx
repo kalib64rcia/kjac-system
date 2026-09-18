@@ -53,7 +53,7 @@ export function UploadPaymentModal({
       form.append("amount", String(booking.down_payment_amount));
       form.append("payment_method", "gcash");
       form.append("email", email);
-      await bookingApi.uploadPayment(booking.booking_id, form);
+      await bookingApi.uploadPayment(booking.reference_id, form);
       toast.success("Payment uploaded", "Admin will verify within 24 hours.");
       onClose();
       onDone();

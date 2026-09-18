@@ -1,14 +1,7 @@
 import type { UseFormReturn } from "react-hook-form";
-import { Loader2 } from "lucide-react";
 import { useBrands, useService, useServices } from "@/hooks/usePublic";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FilterPopover } from "@/components/shared/FilterPopover";
 import { formatPeso } from "@/utils/format";
 import type { BookingFormValues } from "@/schemas/booking.schema";
 
@@ -22,12 +15,14 @@ export function CustomerInfoFields({ form }: { form: Form }) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
         <Label htmlFor="bf-fn">First name *</Label>
-        <Input id="bf-fn" autoComplete="given-name" aria-invalid={!!e.customer_first_name} {...register("customer_first_name")} />
+        <Input id="bf-fn" autoComplete="given-name" placeholder="Enter your first name"
+          aria-invalid={!!e.customer_first_name} {...register("customer_first_name")} />
         <FieldError message={e.customer_first_name?.message} />
       </div>
       <div>
         <Label htmlFor="bf-ln">Last name *</Label>
-        <Input id="bf-ln" autoComplete="family-name" aria-invalid={!!e.customer_last_name} {...register("customer_last_name")} />
+        <Input id="bf-ln" autoComplete="family-name" placeholder="Enter your last name"
+          aria-invalid={!!e.customer_last_name} {...register("customer_last_name")} />
         <FieldError message={e.customer_last_name?.message} />
       </div>
       <div>
@@ -55,59 +50,47 @@ export function ServiceFields({ form }: { form: Form }) {
   const serviceId = watch("service_id");
   const brandId = watch("brand_id");
   const detail = useService(typeof serviceId === "number" && serviceId > 0 ? serviceId : null);
+  const selectedBrand = (brands.data ?? []).find((b) => b.id === brandId);
+  const brandName = selectedBrand
+    ? (selectedBrand.is_partner ? `${selectedBrand.name} (Official Partner)` : selectedBrand.name)
+    : undefined;
+  const serviceName = (services.data ?? []).find((s) => s.id === serviceId)?.name;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
         <Label htmlFor="bf-brand">Aircon brand *</Label>
-        <Select
+        <FilterPopover
+          id="bf-brand"
+          fluid
+          allowClear={false}
+          label="brands"
+          display={brandName ?? "Select brand"}
+          options={(brands.data ?? []).map((b) => ({
+            id: String(b.id),
+            name: b.is_partner ? `${b.name} (Official Partner)` : b.name,
+          }))}
+          isLoading={brands.isLoading}
           value={brandId > 0 ? String(brandId) : ""}
-          onValueChange={(v) => setValue("brand_id", Number(v), { shouldValidate: true })}
+          onPick={(v) => setValue("brand_id", Number(v), { shouldValidate: formState.isSubmitted })}
           disabled={brands.isLoading}
-        >
-          <SelectTrigger id="bf-brand" aria-invalid={!!e.brand_id} aria-busy={brands.isLoading}>
-            {brands.isLoading ? (
-              <span className="inline-flex items-center gap-2 text-gray-500">
-                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                Loading…
-              </span>
-            ) : (
-              <SelectValue placeholder="Select brand" />
-            )}
-          </SelectTrigger>
-          <SelectContent>
-            {(brands.data ?? []).map((b) => (
-              <SelectItem key={b.id} value={String(b.id)}>
-                {b.name}{b.is_partner ? " ★ Official Partner" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <FieldError message={e.brand_id?.message} />
       </div>
       <div>
         <Label htmlFor="bf-service">Service type *</Label>
-        <Select
+        <FilterPopover
+          id="bf-service"
+          fluid
+          allowClear={false}
+          label="services"
+          display={serviceName ?? "Select service"}
+          options={(services.data ?? []).map((s) => ({ id: String(s.id), name: s.name }))}
+          isLoading={services.isLoading}
           value={serviceId > 0 ? String(serviceId) : ""}
-          onValueChange={(v) => setValue("service_id", Number(v), { shouldValidate: true })}
+          onPick={(v) => setValue("service_id", Number(v), { shouldValidate: formState.isSubmitted })}
           disabled={services.isLoading}
-        >
-          <SelectTrigger id="bf-service" aria-invalid={!!e.service_id} aria-busy={services.isLoading}>
-            {services.isLoading ? (
-              <span className="inline-flex items-center gap-2 text-gray-500">
-                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                Loading…
-              </span>
-            ) : (
-              <SelectValue placeholder="Select service" />
-            )}
-          </SelectTrigger>
-          <SelectContent>
-            {(services.data ?? []).map((s) => (
-              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <FieldError message={e.service_id?.message} />
       </div>
       {detail.data && (
@@ -115,9 +98,9 @@ export function ServiceFields({ form }: { form: Form }) {
           <p className="font-semibold text-gray-900">{detail.data.name}</p>
           <p className="mt-1 text-sm text-gray-600">{detail.data.description}</p>
           <p className="mt-2 text-sm font-semibold text-gray-900">
-            Down payment due now:{" "}
+            Reserve with{" "}
             <span className="font-technical">{formatPeso(detail.data.down_payment_amount)}</span>
-            {" "}via GCash
+            {" "}via GCash. Pay this after we accept. Not now.
           </p>
           {detail.data.estimated_duration_display && (
             <p className="mt-1 text-sm text-gray-600">Duration: {detail.data.estimated_duration_display}</p>

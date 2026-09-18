@@ -1,0 +1,29 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "KJAC home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Klein & Justin Airconditioning" [ref=e8]
+      - navigation "Primary" [ref=e9]:
+        - link "Home" [ref=e10] [cursor=pointer]:
+          - /url: /
+        - button "About" [ref=e11] [cursor=pointer]
+        - button "Services" [ref=e12] [cursor=pointer]
+        - button "Brands" [ref=e15] [cursor=pointer]
+        - button "More" [ref=e18] [cursor=pointer]
+      - generic [ref=e21]:
+        - link "Track Booking" [ref=e22] [cursor=pointer]:
+          - /url: /track
+        - link "Book Now" [ref=e23] [cursor=pointer]:
+          - /url: /book
+  - link "Skip to content" [ref=e24] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=e28]:
+    - generic [ref=e29]:
+      - status [ref=e32]:
+        - heading "Page not found" [level=3] [ref=e33]
+        - paragraph [ref=e34]: The page you're looking for doesn't exist or was moved.
+        - button "Back to home" [ref=e35] [cursor=pointer]
+      - paragraph [ref=e36]:
+        - link "Home" [ref=e37] [cursor=pointer]:
+          - /url: /

@@ -1,0 +1,216 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - link "KJAC home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img "Klein & Justin Airconditioning" [ref=e8]
+        - navigation "Primary" [ref=e9]:
+          - link "Home" [ref=e10] [cursor=pointer]:
+            - /url: /
+          - button "About" [ref=e11] [cursor=pointer]
+          - button "Services" [ref=e12] [cursor=pointer]
+          - button "Brands" [ref=e15] [cursor=pointer]
+          - button "More" [ref=e18] [cursor=pointer]
+        - generic [ref=e21]:
+          - link "Track Booking" [ref=e22] [cursor=pointer]:
+            - /url: /track
+          - link "Book Now" [ref=e23] [cursor=pointer]:
+            - /url: /book
+    - link "Skip to content" [ref=e24] [cursor=pointer]:
+      - /url: "#main-content"
+    - main [ref=e28]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - heading "Book Your Appointment" [level=1] [ref=e32]
+          - paragraph [ref=e33]: No account needed · Fast & easy · Secure payment
+        - form "Book service" [ref=e34]:
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - 'heading "Step 1: Your Information" [level=3] [ref=e38]'
+              - generic [ref=e40]:
+                - generic [ref=e41]:
+                  - generic [ref=e42]: First name *
+                  - textbox "First name *" [ref=e43]
+                - generic [ref=e44]:
+                  - generic [ref=e45]: Last name *
+                  - textbox "Last name *" [ref=e46]
+                - generic [ref=e47]:
+                  - generic [ref=e48]: Email *
+                  - textbox "Email *" [ref=e49]:
+                    - /placeholder: you@email.com
+                  - alert [ref=e50]: We'll send booking confirmation here.
+                - generic [ref=e51]:
+                  - generic [ref=e52]: Contact number *
+                  - textbox "Contact number *" [ref=e53]:
+                    - /placeholder: 09XX-XXX-XXXX
+            - generic [ref=e54]:
+              - 'heading "Step 2: Service Location" [level=3] [ref=e56]'
+              - generic [ref=e58]:
+                - generic [ref=e59]:
+                  - generic [ref=e60]: Region *
+                  - button "Filter by region" [ref=e61] [cursor=pointer]:
+                    - generic [ref=e62]: Select region
+                - generic [ref=e63]:
+                  - generic [ref=e64]: Province *
+                  - button "Filter by province" [disabled] [ref=e65]:
+                    - generic [ref=e66]: Select a region first
+                - generic [ref=e67]:
+                  - generic [ref=e68]: City / Municipality *
+                  - button "Filter by city / municipality" [disabled] [ref=e69]:
+                    - generic [ref=e70]: Select a province first
+                - generic [ref=e71]:
+                  - generic [ref=e72]: Barangay *
+                  - button "Filter by barangay" [disabled] [ref=e73]:
+                    - generic [ref=e74]: Select a city first
+                - generic [ref=e75]:
+                  - generic [ref=e76]: Street address *
+                  - textbox "Street address *" [ref=e77]:
+                    - /placeholder: "House #, Street, Subdivision"
+                - generic [ref=e78]:
+                  - generic [ref=e79]: Landmark *
+                  - textbox "Landmark *" [ref=e80]:
+                    - /placeholder: e.g., Near McDonald's, green gate
+            - generic [ref=e81]:
+              - 'heading "Step 3: Service Details" [level=3] [ref=e83]'
+              - generic [ref=e85]:
+                - generic [ref=e86]:
+                  - generic [ref=e87]: Aircon brand *
+                  - button "Filter by brands" [ref=e88] [cursor=pointer]:
+                    - generic [ref=e89]: Select brand
+                - generic [ref=e90]:
+                  - generic [ref=e91]: Service type *
+                  - button "Filter by services" [ref=e92] [cursor=pointer]:
+                    - generic [ref=e93]: Select service
+                - generic [ref=e94]:
+                  - generic [ref=e95]: Problem description (optional)
+                  - textbox "Problem description (optional)" [ref=e96]:
+                    - /placeholder: Describe the issue with your aircon
+            - generic [ref=e97]:
+              - 'heading "Step 4: Schedule" [level=3] [ref=e99]'
+              - generic [ref=e101]:
+                - generic [ref=e102]:
+                  - generic [ref=e103]: Preferred date *
+                  - button "Preferred date *" [expanded] [ref=e104] [cursor=pointer]:
+                    - generic [ref=e105]: Pick a date
+                  - paragraph [ref=e108]: Closed on Sundays.
+                - generic [ref=e109]:
+                  - generic [ref=e110]: Preferred time *
+                  - radiogroup "Preferred time *" [ref=e111]:
+                    - radio "08:00" [ref=e112] [cursor=pointer]
+                    - radio "09:00" [ref=e113] [cursor=pointer]
+                    - radio "10:00" [ref=e114] [cursor=pointer]
+                    - radio "11:00" [ref=e115] [cursor=pointer]
+                    - radio "12:00" [ref=e116] [cursor=pointer]
+                    - radio "13:00" [ref=e117] [cursor=pointer]
+                    - radio "14:00" [ref=e118] [cursor=pointer]
+                    - radio "15:00" [ref=e119] [cursor=pointer]
+                    - radio "16:00" [ref=e120] [cursor=pointer]
+            - generic [ref=e121]:
+              - heading "Review & Submit" [level=3] [ref=e123]
+              - generic [ref=e124]:
+                - generic [ref=e125]:
+                  - paragraph [ref=e126]: Payment & cancellation policy
+                  - paragraph [ref=e127]: A GCash down payment is required within 3 hours of booking. Advance cancellations receive a full auto-refund.
+                - generic [ref=e128] [cursor=pointer]:
+                  - checkbox "I agree to the payment and cancellation policies *" [ref=e129]
+                  - text: I agree to the payment and cancellation policies *
+                - generic [ref=e130] [cursor=pointer]:
+                  - checkbox "I agree to the terms of service *" [ref=e131]
+                  - text: I agree to the terms of service *
+                - button "Submit Booking" [ref=e132] [cursor=pointer]
+                - paragraph [ref=e133]: The down payment for your chosen service (shown in Step 3) is due via GCash within 3 hours of booking.
+    - button "Scroll to top" [ref=e137] [cursor=pointer]
+  - dialog [ref=e139]:
+    - generic [ref=e141]:
+      - navigation "Navigation bar" [ref=e142]:
+        - button "Go to the Previous Month" [active] [ref=e143] [cursor=pointer]
+        - button "Go to the Next Month" [ref=e146] [cursor=pointer]
+      - generic [ref=e149]:
+        - status [ref=e151]: September 2026
+        - grid "September 2026" [ref=e152]:
+          - rowgroup [aria-hidden] [ref=e153]:
+            - row [ref=e154]:
+              - columnheader [ref=e155]: Su
+              - columnheader [ref=e156]: Mo
+              - columnheader [ref=e157]: Tu
+              - columnheader [ref=e158]: We
+              - columnheader [ref=e159]: Th
+              - columnheader [ref=e160]: Fr
+              - columnheader [ref=e161]: Sa
+          - rowgroup [ref=e162]:
+            - row [ref=e163]:
+              - gridcell [ref=e164]:
+                - button "Sunday, August 30th, 2026" [disabled] [ref=e165]: "30"
+              - gridcell [ref=e166]:
+                - button "Monday, August 31st, 2026" [disabled] [ref=e167]: "31"
+              - gridcell [ref=e168]:
+                - button "Tuesday, September 1st, 2026" [disabled] [ref=e169]: "1"
+              - gridcell [ref=e170]:
+                - button "Wednesday, September 2nd, 2026" [disabled] [ref=e171]: "2"
+              - gridcell [ref=e172]:
+                - button "Thursday, September 3rd, 2026" [disabled] [ref=e173]: "3"
+              - gridcell [ref=e174]:
+                - button "Friday, September 4th, 2026" [disabled] [ref=e175]: "4"
+              - gridcell [ref=e176]:
+                - button "Saturday, September 5th, 2026" [disabled] [ref=e177]: "5"
+            - row [ref=e178]:
+              - gridcell [ref=e179]:
+                - button "Sunday, September 6th, 2026" [disabled] [ref=e180]: "6"
+              - gridcell [ref=e181]:
+                - button "Monday, September 7th, 2026" [disabled] [ref=e182]: "7"
+              - gridcell [ref=e183]:
+                - button "Tuesday, September 8th, 2026" [disabled] [ref=e184]: "8"
+              - gridcell [ref=e185]:
+                - button "Wednesday, September 9th, 2026" [disabled] [ref=e186]: "9"
+              - gridcell [ref=e187]:
+                - button "Thursday, September 10th, 2026" [disabled] [ref=e188]: "10"
+              - gridcell [ref=e189]:
+                - button "Friday, September 11th, 2026" [disabled] [ref=e190]: "11"
+              - gridcell [ref=e191]:
+                - button "Saturday, September 12th, 2026" [disabled] [ref=e192]: "12"
+            - row [ref=e193]:
+              - gridcell [ref=e194]:
+                - button "Sunday, September 13th, 2026" [disabled] [ref=e195]: "13"
+              - gridcell [ref=e196]:
+                - button "Today, Monday, September 14th, 2026" [disabled] [ref=e197]: "14"
+              - gridcell [ref=e198]:
+                - button "Tuesday, September 15th, 2026" [ref=e199] [cursor=pointer]: "15"
+              - gridcell [ref=e200]:
+                - button "Wednesday, September 16th, 2026" [ref=e201] [cursor=pointer]: "16"
+              - gridcell [ref=e202]:
+                - button "Thursday, September 17th, 2026" [ref=e203] [cursor=pointer]: "17"
+              - gridcell [ref=e204]:
+                - button "Friday, September 18th, 2026" [ref=e205] [cursor=pointer]: "18"
+              - gridcell [ref=e206]:
+                - button "Saturday, September 19th, 2026" [ref=e207] [cursor=pointer]: "19"
+            - row [ref=e208]:
+              - gridcell [ref=e209]:
+                - button "Sunday, September 20th, 2026" [disabled] [ref=e210]: "20"
+              - gridcell [ref=e211]:
+                - button "Monday, September 21st, 2026" [ref=e212] [cursor=pointer]: "21"
+              - gridcell [ref=e213]:
+                - button "Tuesday, September 22nd, 2026" [ref=e214] [cursor=pointer]: "22"
+              - gridcell [ref=e215]:
+                - button "Wednesday, September 23rd, 2026" [ref=e216] [cursor=pointer]: "23"
+              - gridcell [ref=e217]:
+                - button "Thursday, September 24th, 2026" [ref=e218] [cursor=pointer]: "24"
+              - gridcell [ref=e219]:
+                - button "Friday, September 25th, 2026" [ref=e220] [cursor=pointer]: "25"
+              - gridcell [ref=e221]:
+                - button "Saturday, September 26th, 2026" [ref=e222] [cursor=pointer]: "26"
+            - row [ref=e223]:
+              - gridcell [ref=e224]:
+                - button "Sunday, September 27th, 2026" [disabled] [ref=e225]: "27"
+              - gridcell [ref=e226]:
+                - button "Monday, September 28th, 2026" [ref=e227] [cursor=pointer]: "28"
+              - gridcell [ref=e228]:
+                - button "Tuesday, September 29th, 2026" [ref=e229] [cursor=pointer]: "29"
+              - gridcell [ref=e230]:
+                - button "Wednesday, September 30th, 2026" [ref=e231] [cursor=pointer]: "30"
+              - gridcell [ref=e232]:
+                - button "Thursday, October 1st, 2026" [ref=e233] [cursor=pointer]: "1"
+              - gridcell [ref=e234]:
+                - button "Friday, October 2nd, 2026" [ref=e235] [cursor=pointer]: "2"
+              - gridcell [ref=e236]:
+                - button "Saturday, October 3rd, 2026" [ref=e237] [cursor=pointer]: "3"

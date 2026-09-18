@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query, Request, status
 
 from app.api.deps import CurrentUser, DbDep, OptionalUser
 from app.core.errors import AppError
-from app.core.rate_limit import limiter
+from app.core.rate_limit import conditional_limit
 from app.schemas.booking import (
     BookingCreate,
     BookingListResponse,
@@ -14,6 +14,8 @@ from app.schemas.booking import (
     RescheduleRequest,
     RescheduleResponse,
     TrackResponse,
+    ScheduleRequest,
+    ScheduleResponse,
 )
 from app.services import booking_service as bookings
 from app.services.turnstile_service import verify_turnstile
@@ -26,7 +28,7 @@ def _to_response(booking) -> BookingResponse:
 
 
 @router.post("", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
+@conditional_limit("10/minute")
 async def create_booking(
     request: Request, payload: BookingCreate, db: DbDep, user: OptionalUser
 ) -> BookingResponse:
@@ -52,12 +54,14 @@ async def create_booking(
         preferred_date=payload.preferred_date,
         preferred_time=payload.preferred_time,
         problem_description=payload.problem_description,
+        hold_token=payload.hold_token,
+        flex_window=payload.flex_window,
     )
     return _to_response(booking)
 
 
 @router.get("/track/{reference_id}", response_model=TrackResponse)
-@limiter.limit("100/minute")
+@conditional_limit("100/minute")
 async def track_booking(
     request: Request,
     reference_id: str,
@@ -69,7 +73,7 @@ async def track_booking(
 
 
 @router.get("/me", response_model=BookingListResponse)
-@limiter.limit("300/minute")
+@conditional_limit("300/minute")
 async def my_bookings(
     request: Request,
     db: DbDep,
@@ -103,7 +107,7 @@ async def my_bookings(
 
 
 @router.post("/{booking_id}/cancel", response_model=CancelResponse)
-@limiter.limit("10/minute")
+@conditional_limit("10/minute")
 async def cancel_booking(
     request: Request, booking_id: int, payload: CancelRequest, db: DbDep,
     user: OptionalUser,
@@ -116,7 +120,7 @@ async def cancel_booking(
 
 @router.post("/{booking_id}/reschedule", response_model=RescheduleResponse,
              status_code=status.HTTP_201_CREATED)
-@limiter.limit("10/minute")
+@conditional_limit("10/minute")
 async def reschedule_booking(
     request: Request, booking_id: int, payload: RescheduleRequest, db: DbDep,
     user: OptionalUser,
@@ -128,3 +132,84 @@ async def reschedule_booking(
         payload.new_preferred_time, payload.reason,
     )
     return RescheduleResponse(reschedule_id=row.id, status=row.status)
+
+
+@router.post("/{booking_id}/schedule", response_model=ScheduleResponse,
+             status_code=status.HTTP_201_CREATED)
+@conditional_limit("10/minute")
+async def schedule_booking(
+    request: Request, booking_id: int, payload: ScheduleRequest, db: DbDep,
+    user: CurrentUser,
+) -> ScheduleResponse:
+    """Admin endpoint: propose a schedule for a submitted booking.
+    
+    Transitions booking from 'submitted' to 'proposed' status after validating
+    the time slot and checking for conflicts with existing proposed/scheduled/assigned/ongoing bookings.
+    Sends schedule proposal notification email to customer (date + start time only).
+    Customer can then accept or decline via /track page.
+    """
+    if user is None or user.role not in ("owner", "staff"):
+        raise AppError("PERM_001", "Only admin staff can propose bookings.", 403)
+    
+    booking = await bookings.get_booking_or_404(db, booking_id)
+    result = await bookings.schedule_booking(
+        db, booking, payload.preferred_date, payload.preferred_time,
+        payload.duration_minutes
+    )
+    return ScheduleResponse(
+        booking_id=result.id,
+        status=result.status,
+        proposed_at=result.proposed_at,
+        preferred_date=result.preferred_date,
+        preferred_time=result.preferred_time,
+    )
+
+
+@router.delete("/{booking_id}/schedule")
+@conditional_limit("10/minute")
+async def unschedule_booking(
+    request: Request,
+    booking_id: int,
+    db: DbDep,
+    user: CurrentUser,
+) -> dict[str, bool]:
+    """Remove booking from schedule (proposed/scheduled → submitted).
+    
+    Admin-only. Transitions booking from 'proposed' or 'scheduled' back to 'submitted' status,
+    clearing the time slot and proposed_at/scheduled_at timestamps. Booking returns to pool
+    of unscheduled bookings. Customer can rebook.
+    """
+    if user is None or user.role not in ("owner", "staff"):
+        raise AppError("PERM_001", "Only admin staff can unschedule bookings.", 403)
+    
+    booking = await bookings.get_booking_or_404(db, booking_id)
+    
+    if booking.status not in ("proposed", "scheduled"):
+        raise AppError(
+            "BOOKING_009",
+            f"Only proposed or scheduled bookings can be unscheduled. Current status: {booking.status}.",
+            409
+        )
+    
+    # Transition back to submitted status
+    from app.models.bookings import BookingStatusHistory
+    old_status = booking.status
+    booking.status = "submitted"
+    booking.proposed_at = None
+    booking.proposed_at = None
+    booking.scheduled_at = None
+    booking.preferred_time = None  # Clear the time slot
+    booking.flex_window = None  # Clear the flex window too
+    
+    # Record status change in history
+    db.add(
+        BookingStatusHistory(
+            booking_id=booking.id,
+            old_status=old_status,
+            new_status="submitted",
+            notes="Admin removed booking from schedule",
+        )
+    )
+    
+    await db.commit()
+    return {"success": True}

@@ -87,8 +87,11 @@ class UserService:
 
     @staticmethod
     def is_profile_complete(user: User) -> bool:
+        # Province stays empty for childless regions (e.g. NCR), so it
+        # can't block completeness; the booking screen enforces it
+        # wherever provinces actually exist.
         return all([
-            user.region_code, user.province_code, user.city_municipality_code,
+            user.region_code, user.city_municipality_code,
             user.barangay_code, user.street_address,
         ])
 

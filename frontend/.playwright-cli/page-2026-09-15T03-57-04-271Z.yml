@@ -1,0 +1,245 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - generic:
+        - generic:
+          - heading [level=1]: Bookings
+          - paragraph: Dispatch board — payment, technician, schedule.
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Needs payment
+                  - paragraph: "1"
+                  - paragraph: Submitted, no receipt yet
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Needs technician
+                  - paragraph: "1"
+                  - paragraph: Confirmed work, no one assigned
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Scheduled today
+                  - paragraph: "1"
+                  - paragraph: Manila time
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - paragraph: Ongoing now
+                  - paragraph: "1"
+                  - paragraph: Technician on the job
+        - generic:
+          - generic:
+            - textbox:
+              - /placeholder: Search reference, name, email…
+          - button:
+            - generic: All statuses (4)
+          - generic:
+            - button:
+              - generic: All dates
+          - button:
+            - generic: All brands
+          - button:
+            - generic: All services
+        - generic:
+          - status: Showing 4 of 4 bookings
+        - generic:
+          - generic:
+            - table:
+              - rowgroup:
+                - row:
+                  - columnheader:
+                    - button: Reference
+                  - columnheader:
+                    - button: Customer
+                  - columnheader: Service
+                  - columnheader:
+                    - button: Schedule
+                  - columnheader: Technician
+                  - columnheader: Status
+                  - columnheader: Actions
+              - rowgroup:
+                - row:
+                  - cell:
+                    - generic: KJAC-2026-A1B2C3
+                  - cell:
+                    - generic:
+                      - paragraph: Ana Reyes
+                      - paragraph: "09170001111"
+                      - paragraph: ana@example.com
+                  - cell:
+                    - generic:
+                      - paragraph: General Cleaning
+                      - paragraph: Daikin
+                  - cell:
+                    - generic:
+                      - paragraph: September 18, 2026
+                      - paragraph: 9:00 AM – 10:30 AM
+                  - cell:
+                    - paragraph: Unassigned
+                  - cell:
+                    - generic: Submitted
+                  - cell:
+                    - generic:
+                      - button
+                - row:
+                  - cell:
+                    - generic: KJAC-2026-D4E5F6
+                  - cell:
+                    - generic:
+                      - paragraph: Ben Cruz
+                      - paragraph: "09170002222"
+                      - paragraph: ben@example.com
+                  - cell:
+                    - generic:
+                      - paragraph: General Cleaning
+                      - paragraph: Samsung
+                  - cell:
+                    - generic:
+                      - paragraph: September 19, 2026
+                      - paragraph: 8:00 AM – 9:30 AM
+                  - cell:
+                    - paragraph: Unassigned
+                  - cell:
+                    - generic: Pending review
+                  - cell:
+                    - generic:
+                      - button
+                      - button
+                - row:
+                  - cell:
+                    - generic: KJAC-2026-G7H8I9
+                  - cell:
+                    - generic:
+                      - paragraph: Cora Diaz
+                      - paragraph: "09170003333"
+                      - paragraph: cora@example.com
+                  - cell:
+                    - generic:
+                      - paragraph: Repair
+                      - paragraph: Daikin
+                  - cell:
+                    - generic:
+                      - paragraph: September 18, 2026
+                      - paragraph: 2:00 PM – 4:00 PM
+                  - cell:
+                    - paragraph: Marco Santos
+                  - cell:
+                    - generic: Confirmed
+                  - cell:
+                    - generic:
+                      - button
+                - row:
+                  - cell:
+                    - generic: KJAC-2026-J1K2L3
+                  - cell:
+                    - generic:
+                      - paragraph: Dan Lim
+                      - paragraph: "09170004444"
+                      - paragraph: dan@example.com
+                  - cell:
+                    - generic:
+                      - paragraph: General Cleaning
+                      - paragraph: LG
+                  - cell:
+                    - generic:
+                      - paragraph: September 15, 2026
+                      - paragraph: 10:00 AM – 11:30 AM
+                  - cell:
+                    - paragraph: Jose Ramos
+                  - cell:
+                    - generic: In progress
+                  - cell:
+                    - generic:
+                      - button
+          - generic:
+            - generic:
+              - text: Rows
+              - generic:
+                - combobox
+            - generic:
+              - paragraph: Page 1 of 1
+              - generic:
+                - button [disabled]: Prev
+                - button [disabled]: Next
+  - dialog [ref=f1e192]:
+    - heading "Booking details" [level=2] [ref=f1e193]
+    - generic [ref=f1e194]:
+      - paragraph [ref=f1e196]: KJAC-2026-D4E5F6
+      - generic [ref=f1e197]: Pending review
+      - button "Close menu" [active] [ref=f1e198] [cursor=pointer]
+    - generic [ref=f1e206]:
+      - region "Customer" [ref=f1e207]:
+        - heading "Customer" [level=3] [ref=f1e208]
+        - generic [ref=f1e210]:
+          - generic [ref=f1e211]:
+            - term [ref=f1e212]: Name
+            - definition [ref=f1e213]: Ben Cruz
+          - generic [ref=f1e214]:
+            - term [ref=f1e215]: Phone
+            - definition [ref=f1e216]: "09170002222"
+          - generic [ref=f1e217]:
+            - term [ref=f1e218]: Email
+            - definition [ref=f1e219]: ben@example.com
+      - region "Address" [ref=f1e220]:
+        - heading "Address" [level=3] [ref=f1e221]
+        - generic [ref=f1e223]:
+          - generic [ref=f1e224]:
+            - term [ref=f1e225]: Area
+            - definition [ref=f1e226]: 45 Mabini Ave, Pasig City
+          - generic [ref=f1e227]:
+            - term [ref=f1e228]: Landmark
+            - definition [ref=f1e229]: Green gate
+      - region "Service & schedule" [ref=f1e230]:
+        - heading "Service & schedule" [level=3] [ref=f1e231]
+        - generic [ref=f1e233]:
+          - generic [ref=f1e234]:
+            - term [ref=f1e235]: Service
+            - definition [ref=f1e236]: General Cleaning · Samsung
+          - generic [ref=f1e237]:
+            - term [ref=f1e238]: Price
+            - definition [ref=f1e239]: ₱500.00 down · ₱1,500.00 total
+          - generic [ref=f1e240]:
+            - term [ref=f1e241]: Schedule
+            - definition [ref=f1e242]: September 19, 2026 · 8:00 AM – 9:30 AM
+          - generic [ref=f1e243]:
+            - term [ref=f1e244]: Window
+            - definition [ref=f1e245]: Morning (arrive 8–12)
+          - generic [ref=f1e246]:
+            - generic [ref=f1e247]:
+              - generic [ref=f1e248]: Exact hour
+              - generic [ref=f1e249]:
+                - combobox "Exact hour" [ref=f1e250] [cursor=pointer]:
+                  - option "8:00 AM" [selected]
+                  - option "9:00 AM"
+                  - option "10:00 AM"
+                  - option "11:00 AM"
+                - button "Set time" [ref=f1e251] [cursor=pointer]
+            - paragraph [ref=f1e252]: Inside the promised morning only — the server enforces it.
+      - region "Payment" [ref=f1e253]:
+        - heading "Payment" [level=3] [ref=f1e254]
+        - generic [ref=f1e256]:
+          - generic [ref=f1e257]:
+            - term [ref=f1e258]: Status
+            - definition [ref=f1e259]: approved
+          - generic [ref=f1e260]:
+            - term [ref=f1e261]: Amount
+            - definition [ref=f1e262]: ₱500.00
+          - generic [ref=f1e263]:
+            - term [ref=f1e264]: GCash ref
+            - definition [ref=f1e265]: "1234567890123"
+      - region "Technician" [ref=f1e266]:
+        - heading "Technician" [level=3] [ref=f1e267]
+        - generic [ref=f1e268]:
+          - paragraph [ref=f1e269]: Unassigned — pick someone below.
+          - button "Assign technician" [ref=f1e271] [cursor=pointer]
+      - region "Timeline" [ref=f1e272]:
+        - heading "Timeline" [level=3] [ref=f1e273]
+        - paragraph [ref=f1e275]: Opened September 15, 2026.
+      - button "Cancel booking" [ref=f1e276] [cursor=pointer]

@@ -1,26 +1,29 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+  BanknoteArrowDown,
   BarChart3,
   Bell,
-  BookOpenCheck,
+  CalendarDays,
   ChevronRight,
-  ClipboardList,
+  ClipboardClock,
   FileText,
+  HandCoins,
   History,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   Menu,
   Package,
   Settings as SettingsIcon,
-  ShieldCheck,
-  UserRound,
+  CircleUser,
+  Star,
   Users,
   Wallet,
-  Wrench,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { useUiStore } from "@/stores/ui.store";
+import { useUnreadCount } from "@/hooks/useOffice";
 import { getInitials } from "@/utils/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -64,32 +67,29 @@ function navFor(base: "/owner" | "/staff", isOwner: boolean): NavGroup[] {
     {
       section: "Operations",
       items: [
-        { label: "Bookings", to: `${base}/bookings`, icon: ClipboardList },
+        { label: "Bookings", to: `${base}/bookings`, icon: ClipboardClock },
+        { label: "Schedule", to: `${base}/schedule`, icon: CalendarDays },
         { label: "Payments", to: `${base}/payments`, icon: Wallet },
+        { label: "Refunds", to: `${base}/refunds`, icon: BanknoteArrowDown },
+        { label: "Inventory", to: `${base}/inventory`, icon: Package },
         { label: "Customers", to: `${base}/customers`, icon: Users },
-        { label: "Technicians", to: `${base}/technicians`, icon: Wrench },
+        { label: "Notifications", to: `${base}/notifications`, icon: Bell },
       ],
     },
     {
-      section: "Workspace",
+      section: "Team",
       items: [
-        { label: "Inventory", to: `${base}/inventory`, icon: Package },
-        { label: "Notifications", to: `${base}/notifications`, icon: Bell },
+        { label: "Team", to: `${base}/team`, icon: Users },
       ],
     },
   ];
   if (isOwner) {
     groups.push(
       {
-        section: "Team",
-        items: [
-          { label: "Staff", to: `${base}/staff`, icon: ShieldCheck },
-          { label: "Approvals", to: `${base}/approvals`, icon: BookOpenCheck },
-        ],
-      },
-      {
         section: "Business",
         items: [
+          { label: "Catalog", to: `${base}/catalog`, icon: LayoutGrid },
+          { label: "Ratings", to: `${base}/ratings`, icon: Star },
           { label: "Analytics", to: `${base}/analytics`, icon: BarChart3 },
           { label: "Reports", to: `${base}/reports`, icon: FileText },
         ],
@@ -97,7 +97,7 @@ function navFor(base: "/owner" | "/staff", isOwner: boolean): NavGroup[] {
       {
         section: "System",
         items: [
-          { label: "Payroll", to: `${base}/payroll`, icon: Wallet },
+          { label: "Payroll", to: `${base}/payroll`, icon: HandCoins },
           { label: "Audit Logs", to: `${base}/audit-logs`, icon: History },
           { label: "Settings", to: `${base}/settings`, icon: SettingsIcon },
         ],
@@ -106,7 +106,11 @@ function navFor(base: "/owner" | "/staff", isOwner: boolean): NavGroup[] {
   } else {
     groups.push({
       section: "Business",
-      items: [{ label: "Reports", to: `${base}/reports`, icon: FileText }],
+      items: [
+        { label: "Catalog", to: `${base}/catalog`, icon: LayoutGrid },
+        { label: "Ratings", to: `${base}/ratings`, icon: Star },
+        { label: "Reports", to: `${base}/reports`, icon: FileText },
+      ],
     });
   }
   return groups;
@@ -116,13 +120,15 @@ const CRUMBS: Record<string, string> = {
   dashboard: "Dashboard",
   profile: "My profile",
   bookings: "Bookings",
+  schedule: "Schedule",
   payments: "Payments",
   customers: "Customers",
-  technicians: "Technicians",
+  team: "Team",
+  refunds: "Refunds",
   inventory: "Inventory",
   notifications: "Notifications",
-  staff: "Staff",
-  approvals: "Approvals",
+  catalog: "Catalog",
+  ratings: "Ratings",
   analytics: "Analytics",
   reports: "Reports",
   payroll: "Payroll",
@@ -151,14 +157,14 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
   return (
       <div
       className={cn(
-        "flex h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 ease-out motion-reduce:transition-none",
+        "flex h-full flex-col overflow-hidden bg-white drop-shadow-md transition-[width] duration-200 ease-out motion-reduce:transition-none",
         // Drawer context: the Sheet owns w-86%/360 — fill it exactly once.
         mobile ? "w-full" : collapsed ? "w-[65px]" : "w-[280px]",
       )}
       >
         <div
           className={cn(
-            "flex h-20 shrink-0 items-center border-b border-gray-200 transition-[padding,gap] duration-200 ease-out motion-reduce:transition-none",
+            "flex h-20 shrink-0 items-center border-b border-gray-200 shadow-sm transition-[padding,gap] duration-200 ease-out motion-reduce:transition-none",
             rail ? "justify-center gap-0 px-3" : "justify-start gap-2 px-3",
           )}
         >
@@ -371,7 +377,7 @@ function ProfileMenu({ base }: { base: "/owner" | "/staff" }) {
           <DropdownMenuSeparator className="bg-gray-100" />
           <DropdownMenuGroup>
             <DropdownMenuItem onSelect={() => navigate(`${base}/profile`)}>
-              <UserRound size={16} aria-hidden="true" />
+              <CircleUser size={16} aria-hidden="true" />
               My profile
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate(`${base}/notifications`)}>
@@ -428,6 +434,9 @@ export function AdminLayout({
   const setMobileOpen = useUiStore((s) => s.setMobileNavOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const unread = useUnreadCount(!!user);
+  const unreadCount = unread.data?.unread_count ?? 0;
   return (
     <div className="flex h-dvh overflow-hidden bg-gray-50">
       <aside className="hidden h-full shrink-0 md:block">
@@ -448,7 +457,7 @@ export function AdminLayout({
         </Sheet>
       )}
       <div className="flex min-w-0 min-h-0 flex-1 flex-col">
-        <header className="z-30 flex h-20 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 sm:px-6">
+        <header className="z-30 flex h-20 shrink-0 items-center gap-2 border-b border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.05)] px-4 sm:px-6">
           <button
             type="button"
             onClick={() => (window.innerWidth < 768 ? setMobileOpen(true) : toggleSidebar())}
@@ -461,16 +470,22 @@ export function AdminLayout({
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              aria-label="Notifications"
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+              onClick={() => navigate(`${base}/notifications`)}
+              className="relative flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
             >
               <Bell size={20} />
+              {unreadCount > 0 && (
+                <span aria-hidden="true" className="absolute right-1 top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary-500 px-1 font-technical text-[11px] font-semibold tabular-nums text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
             <ProfileMenu base={base} />
           </div>
         </header>
         <ScrollArea className="min-h-0 flex-1" viewportId="office-scroll">
-          <main className="scroll-mt-4 p-4 sm:p-6" id="admin-content">{children}</main>
+          <main className="scroll-mt-4 overflow-x-clip p-4 contain-inline-size sm:p-6" id="admin-content">{children}</main>
         </ScrollArea>
       </div>
       <Toaster />

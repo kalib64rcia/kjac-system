@@ -8,6 +8,10 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      // Trust fetched pages for 45s: revisits render instantly with zero
+      // fetch. Every mutation invalidates its keys, so actions always
+      // show fresh truth — only passive viewing can lag, by ≤45s.
+      staleTime: 45_000,
     },
   },
 });

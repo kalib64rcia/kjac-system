@@ -7,9 +7,9 @@ export const psgcApi = {
     api
       .get<PsgcItem[]>("/psgc/provinces", { params: { region_code: regionCode } })
       .then((r) => r.data),
-  cities: (provinceCode: string) =>
+  cities: (params: { province_code?: string; region_code?: string }) =>
     api
-      .get<PsgcItem[]>("/psgc/cities", { params: { province_code: provinceCode } })
+      .get<PsgcItem[]>("/psgc/cities", { params })
       .then((r) => r.data),
   barangays: (cityCode: string) =>
     api

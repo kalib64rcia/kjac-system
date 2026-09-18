@@ -46,16 +46,35 @@ function SheetContent({
   children,
   label,
   onClose,
+  side = "left",
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   label: string;
   onClose?: () => void;
+  side?: "left" | "right";
+  overlayClassName?: string;
 }) {
+  const hasCustomTop = className?.includes("top-");
+  const hasCustomOverlayTop = overlayClassName?.includes("top-");
+
+  const sideClasses =
+    side === "right"
+      ? cn(
+          !hasCustomTop && "inset-y-0",
+          "right-0 data-[state=open]:animate-drawer-right data-[state=closed]:animate-drawer-right-out",
+        )
+      : "inset-y-0 left-0 data-[state=open]:animate-drawer-in";
+
   return (
     <SheetPrimitive.Portal data-slot="sheet-portal">
       <SheetPrimitive.Overlay
         data-slot="sheet-overlay"
-        className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-fade-in"
+        className={cn(
+          "fixed z-[70] bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-fade-in",
+          hasCustomOverlayTop ? "inset-x-0 bottom-0" : "inset-0",
+          overlayClassName,
+        )}
       />
       <SheetPrimitive.Content
         data-slot="sheet-content"
@@ -63,7 +82,8 @@ function SheetContent({
         onEscapeKeyDown={onClose}
         onPointerDownOutside={onClose ? () => onClose() : undefined}
         className={cn(
-          "thin-scroll fixed inset-y-0 left-0 z-[70] flex w-[86%] max-w-[360px] flex-col overflow-y-auto overscroll-contain bg-white shadow-xl data-[state=open]:animate-drawer-in",
+          "thin-scroll fixed z-[70] flex w-[86%] max-w-[360px] flex-col overflow-y-auto overscroll-contain bg-white shadow-xl",
+          sideClasses,
           className,
         )}
         {...props}

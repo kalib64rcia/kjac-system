@@ -2,12 +2,14 @@ import { Check } from "lucide-react";
 import type { BookingStatus } from "@/types/booking.types";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["submitted", "pending", "confirmed", "ongoing", "completed"] as const;
+const STEPS = ["submitted", "proposed", "scheduled", "confirmed", "assigned", "ongoing", "completed"] as const;
 const LABELS: Record<string, string> = {
   submitted: "Submitted",
-  pending: "Pending",
+  proposed: "Proposed Schedule",
+  scheduled: "Awaiting Payment",
   confirmed: "Confirmed",
-  ongoing: "Ongoing",
+  assigned: "Assigned",
+  ongoing: "In Progress",
   completed: "Completed",
 };
 

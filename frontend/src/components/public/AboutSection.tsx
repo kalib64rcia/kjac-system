@@ -1,12 +1,11 @@
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import type { LandingContent } from "@/types/content.types";
-import { Blobs } from "./Decor";
 
 /** About section: banner-2 side image + editable text. */
 export function AboutSection({ content }: { content: LandingContent }) {
   return (
-    <section id="about" className="relative mx-auto max-w-7xl scroll-mt-24 overflow-hidden px-4 py-14 sm:px-6" aria-label="About">
-      <Blobs variant="mono" />
+    <section id="about" className="relative mx-auto max-w-7xl overflow-hidden px-4 py-14 sm:px-6" aria-label="About">
       <div className="relative grid grid-cols-1 items-center gap-8 md:grid-cols-2">
         <img
           src="/assets/business/kjac-banner-2.jpg"
@@ -22,12 +21,9 @@ export function AboutSection({ content }: { content: LandingContent }) {
             <li>✓ Official Daikin partner</li>
             <li>✓ Certified technicians</li>
           </ul>
-          <Link
-            to="/book"
-            className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-400 px-6 text-sm font-semibold text-white hover:bg-primary-500"
-          >
-            View Our Services
-          </Link>
+          <Button asChild className="mt-6 px-6">
+            <Link to="/book">View Our Services</Link>
+          </Button>
         </div>
       </div>
     </section>

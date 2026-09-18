@@ -38,6 +38,19 @@ def _cache_set(key: str, value: list[dict]) -> None:
     _cache[key] = (time.monotonic() + settings.psgc_cache_ttl_seconds, value)
 
 
+def _repair(value: str) -> str:
+    """Fix double-encoded names from upstream (e.g. "ParaÃ±aque" → "Parañaque").
+
+    Upstream stores some names as UTF-8 bytes read as Latin-1. Reversing
+    that is a fixed point for clean text: plain names come back identical,
+    so this is safe to run on every name.
+    """
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
+
+
 def _parse(items: object) -> list[dict]:
     parsed = []
     if not isinstance(items, list):
@@ -52,7 +65,7 @@ def _parse(items: object) -> list[dict]:
         parsed.append(
             {
                 "code": str(code),
-                "name": str(name),
+                "name": _repair(str(name)),
                 "is_city": bool(item.get("isCity", item.get("is_city", False))),
             }
         )
@@ -95,7 +108,10 @@ async def _upsert_provinces(db: AsyncSession, rows: list[dict], region_code: str
                 province_code=row["code"], province_name=row["name"],
                 region_code=region_code, is_active=True,
             )
-            .on_conflict_do_nothing()
+            .on_conflict_do_update(
+                index_elements=["province_code"],
+                set_={"province_name": row["name"], "is_active": True},
+            )
         )
 
 
@@ -110,7 +126,10 @@ async def _upsert_cities(
                 city_municipality_name=row["name"],
                 province_code=province_code, is_city=row["is_city"], is_active=True,
             )
-            .on_conflict_do_nothing()
+            .on_conflict_do_update(
+                index_elements=["city_municipality_code"],
+                set_={"city_municipality_name": row["name"], "is_active": True},
+            )
         )
 
 
@@ -124,7 +143,10 @@ async def _upsert_barangays(
                 barangay_code=row["code"], barangay_name=row["name"],
                 city_municipality_code=city_code, is_active=True,
             )
-            .on_conflict_do_nothing()
+            .on_conflict_do_update(
+                index_elements=["barangay_code"],
+                set_={"barangay_name": row["name"], "is_active": True},
+            )
         )
 
 
@@ -158,6 +180,17 @@ async def list_cities(db: AsyncSession, province_code: str) -> list[dict]:
     except SQLAlchemyError as exc:
         await db.rollback()
         logger.warning("psgc city upsert skipped: %s", exc)
+    return [{"code": r["code"], "name": r["name"]} for r in rows]
+
+
+async def list_cities_by_region(db: AsyncSession, region_code: str) -> list[dict]:
+    """Cities straight from a region (e.g. NCR has no provinces).
+
+    Served from upstream only: the cities table needs a province code
+    that region-level cities don't have, so there is nothing to upsert.
+    """
+    _ = db
+    rows = await _fetch(f"/regions/{region_code}/cities-municipalities")
     return [{"code": r["code"], "name": r["name"]} for r in rows]
 
 

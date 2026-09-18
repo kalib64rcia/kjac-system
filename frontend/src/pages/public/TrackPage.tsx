@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTrackBooking } from "@/hooks/usePublic";
+import { bookingApi } from "@/api/booking.api";
 import { ApiError } from "@/api/errors";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
 import { toast } from "@/stores/toast.store";
 import { PageHeader, ErrorCard } from "@/components/shared/PageHeader";
-import { Blobs, DotGrid } from "@/components/public/Decor";
-import { CancelBookingDialog } from "@/components/public/tracking/CancelBookingDialog";
+import { SectionDotGrid } from "@/components/public/Decor";
+import { Footer } from "@/components/public/Footer";
 import { TrackResult } from "@/components/public/tracking/TrackResult";
 import { TrackSearch } from "@/components/public/tracking/TrackSearch";
 import { UploadPaymentModal } from "@/components/public/tracking/UploadPaymentModal";
@@ -13,24 +15,30 @@ import type { TrackFormValues } from "@/schemas/booking.schema";
 
 /** Booking tracker: ref + email → masked status + upload + cancel. */
 export function TrackPage() {
-  const [params] = useSearchParams();
+  const location = useLocation();
+  const trackState = location.state as { reference_id: string; email: string } | null;
   const [submitted, setSubmitted] = useState({
-    reference_id: params.get("ref") ?? "",
-    email: params.get("email") ?? "",
+    reference_id: "",
+    email: "",
   });
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState<ConfirmSpec | null>(null);
   const query = useTrackBooking(submitted.reference_id, submitted.email);
   const autoSearched = useRef(false);
 
-  // Coming from the success page with ?ref=&email= → look up immediately.
+  // Auto-fill from state object if coming from success page
   useEffect(() => {
-    if (!autoSearched.current && submitted.reference_id && submitted.email) {
+    if (!autoSearched.current && trackState?.reference_id && trackState?.email) {
       autoSearched.current = true;
-      void query.refetch();
+      setSubmitted({
+        reference_id: trackState.reference_id,
+        email: trackState.email,
+      });
+      // Trigger search after state is set
+      window.setTimeout(() => void query.refetch(), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [trackState]);
 
   const search = (values: TrackFormValues) => {
     setSubmitted({ reference_id: values.reference_id, email: values.email });
@@ -42,16 +50,15 @@ export function TrackPage() {
     query.isError && query.error instanceof ApiError && query.error.status === 404;
 
   return (
-    <div className="relative overflow-hidden">
-      <Blobs variant="cool" />
-      <DotGrid className="left-4 top-10 hidden lg:block" />
+    <>
+      <div className="relative overflow-hidden">
+        <SectionDotGrid variant="primary" />
       <div className="relative mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
         title="Track Your Booking"
         description="Enter your reference ID and booking email."
       />
       <TrackSearch
-        initial={submitted}
         pending={query.isFetching}
         onSearch={search}
       />
@@ -83,7 +90,51 @@ export function TrackPage() {
           <TrackResult
             booking={query.data}
             onUpload={() => setUploadOpen(true)}
-            onCancel={() => setCancelOpen(true)}
+            onCancel={() => {
+              const booking = query.data;
+              if (!booking) return;
+              const refundable =
+                booking.status === "submitted" || booking.status === "proposed";
+              setConfirmCancel({
+                title: "Cancel Booking",
+                body: (
+                  <>
+                    <p>
+                      Reference{" "}
+                      <span className="font-technical font-semibold">
+                        {booking.reference_id}
+                      </span>
+                    </p>
+                    {refundable ? (
+                      <p className="mt-2 rounded-lg bg-success-50 p-3 font-medium text-success-700">
+                        Eligible for full refund of your down payment.
+                      </p>
+                    ) : (
+                      <p className="mt-2 rounded-lg bg-warning-50 p-3 font-medium text-warning-700">
+                        Same-day or dispatched bookings need admin review — the refund
+                        amount will be decided by admin.
+                      </p>
+                    )}
+                  </>
+                ),
+                confirmLabel: "Confirm Cancellation",
+                destructive: true,
+                requireReason: "Reason for cancellation",
+                onConfirm: async (reason) => {
+                  const res = await bookingApi.cancel(
+                    booking.booking_id,
+                    reason,
+                    submitted.email,
+                  );
+                  if (res.refund_status === "none") {
+                    toast.success("Booking cancelled", "No payment was made, so there is nothing to refund.");
+                  } else {
+                    toast.success("Booking cancelled", `Refund status: ${res.refund_status}.`);
+                  }
+                  void query.refetch();
+                },
+              });
+            }}
           />
           <UploadPaymentModal
             booking={query.data}
@@ -95,16 +146,12 @@ export function TrackPage() {
               toast.info("Status updated", "Your booking now shows payment under review.");
             }}
           />
-          <CancelBookingDialog
-            booking={query.data}
-            email={submitted.email}
-            open={cancelOpen}
-            onClose={() => setCancelOpen(false)}
-            onDone={() => void query.refetch()}
-          />
+          <ConfirmDialog spec={confirmCancel} onClose={() => setConfirmCancel(null)} />
         </div>
       )}
       </div>
     </div>
+    <Footer />
+  </>
   );
 }

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, Menu, Star } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useBrands, useLandingContent, useServices } from "@/hooks/usePublic";
 import { useUiStore } from "@/stores/ui.store";
 import { Toaster } from "@/components/feedback/Toaster";
@@ -14,20 +14,47 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetCloseButton, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+export function scrollToSection(id: string) {
+  const container = document.getElementById("public-scroll");
+  if (id === "home" || id === "/") {
+    if (container) {
+      container.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    return;
+  }
+
+  const target = document.getElementById(id);
+  if (!target) return;
+
+  if (container) {
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const targetScrollTop = container.scrollTop + (targetRect.top - containerRect.top);
+
+    container.scrollTo({
+      top: Math.round(targetScrollTop),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  } else {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
-function useGoSection() {
+export function useGoSection() {
   const location = useLocation();
   const navigate = useNavigate();
   return (id: string) => {
     if (location.pathname !== "/") {
       void navigate("/");
-      window.setTimeout(() => scrollToSection(id), 150);
+      window.setTimeout(() => scrollToSection(id), 180);
     } else {
       scrollToSection(id);
     }
@@ -68,18 +95,19 @@ function MobileSheet() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent label="Menu" onClose={() => setOpen(false)} className="p-0">
+      <SheetContent
+        label="Menu"
+        side="right"
+        onClose={() => setOpen(false)}
+        className="top-20 bottom-0 left-0 right-0 h-[calc(100dvh-5rem)] w-full max-w-none border-t border-gray-200 z-40 p-0 shadow-xl bg-white"
+        overlayClassName="top-20 z-40"
+      >
         <SheetTitle className="sr-only">Menu</SheetTitle>
-        <div className="flex h-20 shrink-0 items-center gap-2 border-b border-gray-200 px-4">
-          <img src="/assets/business/kjac-logo.png" alt="" aria-hidden="true" className="h-9 w-9 shrink-0 rounded-full" />
-          <img src="/assets/business/kjac-brand-name.png" alt="KJAC" className="h-6 w-auto shrink-0" style={{ maxWidth: 130 }} />
-          <SheetCloseButton onClose={() => setOpen(false)} />
-        </div>
         <ScrollArea className="min-h-0 flex-1">
           <nav className="flex flex-col gap-1 p-4" aria-label="Mobile">
-          <Link to="/" onClick={() => setOpen(false)} className={mobileItem}>
+          <button type="button" onClick={() => jump("home")} className={mobileItem}>
             Home
-          </Link>
+          </button>
           <button type="button" onClick={() => jump("about")} className={mobileItem}>
             About
           </button>
@@ -114,16 +142,17 @@ function MobileSheet() {
             <div className="ml-3 flex flex-col border-l-2 border-gray-100 pl-2">
               {(brands.data ?? []).map((b) => (
                 <button key={b.id} type="button" onClick={() => jump("brands")} className={cn(mobileItem, "text-sm font-medium")}>
-                  {b.is_partner ? `★ ${b.name} (Partner)` : b.name}
+                  {b.is_partner ? `${b.name} (Official Partner)` : b.name}
                 </button>
               ))}
             </div>
           )}
           {(
             [
-              ["Gallery", "guides", content?.show_gallery !== false],
-              ["Testimonials", "testimonials", content?.show_testimonials !== false],
+              ["Why Choose Us", "why-us", true],
               ["Mission & Vision", "mission-vision", !!content?.mission_text?.trim() || !!content?.vision_text?.trim()],
+              ["Testimonials", "testimonials", content?.show_testimonials !== false],
+              ["Gallery", "guides", content?.show_gallery !== false],
               ["FAQs", "faqs", content?.show_faq !== false],
               ["Contact", "contact", true],
             ] as [string, string, boolean][]
@@ -139,14 +168,24 @@ function MobileSheet() {
         <div className="sticky bottom-0 flex flex-col gap-2 border-t border-gray-200 bg-white p-4">
           <Link
             to="/book"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              const container = document.getElementById("public-scroll");
+              if (container) container.scrollTo({ top: 0, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             className="flex min-h-[44px] items-center justify-center rounded-lg bg-primary-400 px-4 font-semibold text-white hover:bg-primary-500"
           >
             Book Appointment Now
           </Link>
           <Link
             to="/track"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              const container = document.getElementById("public-scroll");
+              if (container) container.scrollTo({ top: 0, behavior: "smooth" });
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             className="flex min-h-[44px] items-center justify-center rounded-lg border border-primary-600 px-4 font-semibold text-primary-600 hover:bg-primary-50"
           >
             Track Booking Status
@@ -158,19 +197,56 @@ function MobileSheet() {
 }
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
+  const open = useUiStore((s) => s.mobileNavOpen);
   const setOpen = useUiStore((s) => s.setMobileNavOpen);
   const go = useGoSection();
   const services = useServices();
   const brands = useBrands();
   const { data: content } = useLandingContent();
-  const partner = brands.data?.find((b) => b.is_partner);
+  const location = useLocation();
+
+  // Automatically scroll to the top of public-scroll whenever the route changes
+  useEffect(() => {
+    const container = document.getElementById("public-scroll");
+    if (container) {
+      container.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  const navigateToTop = () => {
+    setOpen(false);
+    const container = document.getElementById("public-scroll");
+    if (container) {
+      container.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) {
+      return;
+    }
+    e.preventDefault();
+    navigateToTop();
+    if (window.location.pathname === "/" && !window.location.hash && !window.location.search) {
+      window.location.reload();
+    } else {
+      window.location.href = "/";
+    }
+  };
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-white">
       <ScrollProgress targetId="public-scroll" />
-      <header className="z-40 h-20 shrink-0 border-b border-gray-200 bg-white shadow-sm">
+      <header className="relative z-50 h-20 shrink-0 border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to="/" aria-label="KJAC home" className="flex shrink-0 cursor-pointer items-center gap-2">
+          <a
+            href="/"
+            onClick={handleLogoClick}
+            aria-label="KJAC home"
+            className="flex shrink-0 cursor-pointer items-center gap-2"
+          >
             <img
               src="/assets/business/kjac-logo.png"
               alt=""
@@ -183,11 +259,15 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               className="h-7 w-auto shrink-0"
               style={{ maxWidth: 150 }}
             />
-          </Link>
+          </a>
           <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
-            <Link to="/" className="cursor-pointer text-base font-semibold text-gray-700 hover:text-primary-600">
+            <button
+              type="button"
+              onClick={() => go("home")}
+              className="min-h-[44px] cursor-pointer text-base font-semibold text-gray-700 hover:text-primary-600"
+            >
               Home
-            </Link>
+            </button>
             <button
               type="button"
               onClick={() => go("about")}
@@ -206,12 +286,11 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
             </DesktopDropdown>
             <DesktopDropdown label="Brands">
-              {partner && (
-                <DropdownMenuItem onSelect={() => go("brands")} className="font-semibold text-primary-700">
-                  <Star size={14} aria-hidden="true" className="mr-1.5" />
-                  {partner.name} (Official Partner)
+              {(brands.data ?? []).filter((b) => b.is_partner).map((b) => (
+                <DropdownMenuItem key={b.id} onSelect={() => go("brands")} className="font-semibold text-primary-700">
+                  {b.name} (Official Partner)
                 </DropdownMenuItem>
-              )}
+              ))}
               {(brands.data ?? []).filter((b) => !b.is_partner).map((b) => (
                 <DropdownMenuItem key={b.id} onSelect={() => go("brands")}>
                   {b.name}
@@ -222,43 +301,46 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
             </DesktopDropdown>
             <DesktopDropdown label="More">
-              {content?.show_gallery !== false && (
-                <DropdownMenuItem onSelect={() => go("guides")}>Gallery</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => go("why-us")}>Why Choose Us</DropdownMenuItem>
+              {(content?.mission_text?.trim() || content?.vision_text?.trim()) && (
+                <DropdownMenuItem onSelect={() => go("mission-vision")}>Mission &amp; Vision</DropdownMenuItem>
               )}
               {content?.show_testimonials !== false && (
                 <DropdownMenuItem onSelect={() => go("testimonials")}>Testimonials</DropdownMenuItem>
               )}
+              {content?.show_gallery !== false && (
+                <DropdownMenuItem onSelect={() => go("guides")}>Gallery</DropdownMenuItem>
+              )}
               {content?.show_faq !== false && (
                 <DropdownMenuItem onSelect={() => go("faqs")}>FAQs</DropdownMenuItem>
               )}
-              {(content?.mission_text?.trim() || content?.vision_text?.trim()) && (
-                <DropdownMenuItem onSelect={() => go("mission-vision")}>Mission &amp; Vision</DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => go("contact")}>Contact Us</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => go("about")}>About Us</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => go("contact")}>Contact</DropdownMenuItem>
             </DesktopDropdown>
           </nav>
           <div className="hidden items-center gap-3 lg:flex">
             <Link
               to="/track"
+              onClick={navigateToTop}
               className="rounded-lg border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
             >
               Track Booking
             </Link>
             <Link
               to="/book"
+              onClick={navigateToTop}
               className="rounded-lg bg-primary-400 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500"
             >
-              Book Now
+              Book Service Now
             </Link>
           </div>
           <button
             type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Open menu"
+            onClick={() => setOpen(!open)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
             className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-md text-gray-700 hover:bg-gray-100 lg:hidden"
           >
-            <Menu size={24} />
+            {open ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </header>
@@ -270,7 +352,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <ScrollArea className="min-h-0 flex-1" viewportId="public-scroll">
-        <main id="main-content" className="scroll-mt-4 overflow-x-clip contain-inline-size">{children}</main>
+        <main id="main-content" className="overflow-x-clip contain-inline-size">{children}</main>
       </ScrollArea>
       <ScrollToTop targetId="public-scroll" />
       <Toaster />

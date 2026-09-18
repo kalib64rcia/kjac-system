@@ -1,9 +1,11 @@
 """Shared FastAPI dependencies (Annotated pattern per fastapi/fastapi-patterns skills)."""
 
+import uuid
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -19,9 +21,28 @@ from app.services.user_service import UserService
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
+# ponytail: session-scoped SET (not SET LOCAL) + teardown RESET. Holds because
+# every write flow stamps before writing and commits once at the end; revisit
+# with per-transaction SET LOCAL if multi-commit writes ever appear.
+_AUDIT_ACTOR_GUC = "app.current_user_uuid"
+
+
+async def _stamp_audit_actor(db: AsyncSession, subject: str | None) -> None:
+    """Expose the request login to the audit trigger (NULL-safe for guests)."""
+    if subject is None:
+        await db.execute(text(f"RESET {_AUDIT_ACTOR_GUC}"))
+        return
+    try:
+        clean = str(uuid.UUID(str(subject)))
+    except ValueError:
+        await db.execute(text(f"RESET {_AUDIT_ACTOR_GUC}"))
+        return
+    await db.execute(text(f"SET {_AUDIT_ACTOR_GUC} = '{clean}'"))
+
 
 async def get_current_user(db: DbDep, subject: CurrentSubject) -> User | None:
     """App user row for a verified Supabase subject (None if unknown)."""
+    await _stamp_audit_actor(db, subject)
     return await UserService(db).get_by_uuid(subject)
 
 
@@ -52,7 +73,9 @@ async def get_optional_user(
 ) -> User | None:
     """Authenticated owner when a valid token is present, else None (guests)."""
     if subject is None:
+        await _stamp_audit_actor(db, None)
         return None
+    await _stamp_audit_actor(db, subject)
     return await UserService(db).get_by_uuid(subject)
 
 

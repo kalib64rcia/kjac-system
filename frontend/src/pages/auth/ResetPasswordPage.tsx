@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Label, PasswordInput } from "@/components/ui/input";
 import { resetSchema, type ResetFormValues } from "@/schemas/auth.schema";
 import { getSupabase } from "@/lib/supabase";
 import { toast } from "@/stores/toast.store";
@@ -18,6 +18,7 @@ export function ResetPasswordPage() {
   const { register, handleSubmit, formState } = useForm<ResetFormValues>({
     resolver: zodResolver(resetSchema),
     defaultValues: { password: "", confirm: "" },
+    mode: "onSubmit",
   });
 
   useEffect(() => {
@@ -78,9 +79,8 @@ export function ResetPasswordPage() {
           <div className="flex flex-col gap-4">
             <div>
               <Label htmlFor="reset-password">New password *</Label>
-              <Input
+              <PasswordInput
                 id="reset-password"
-                type="password"
                 placeholder="At least 8 characters"
                 autoComplete="new-password"
                 aria-invalid={!!formState.errors.password}
@@ -90,9 +90,8 @@ export function ResetPasswordPage() {
             </div>
             <div>
               <Label htmlFor="reset-confirm">Confirm password *</Label>
-              <Input
+              <PasswordInput
                 id="reset-confirm"
-                type="password"
                 placeholder="Repeat the new password"
                 autoComplete="new-password"
                 aria-invalid={!!formState.errors.confirm}

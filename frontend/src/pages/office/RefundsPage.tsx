@@ -29,6 +29,7 @@ function ProposeForm() {
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, reset, formState } = useForm<ProposeValues>({
     resolver: zodResolver(proposeSchema) as unknown as Resolver<ProposeValues>,
+    mode: "onSubmit",
   });
   const submit = handleSubmit(async (v) => {
     setError(null);
@@ -120,7 +121,7 @@ function RefundCard({ refund }: { refund: Refund }) {
         </span>
       </div>
       <p className="mt-1 text-sm text-gray-600">
-        Booking #{refund.booking_id} · Payment #{refund.payment_id} — {refund.reason}
+        Booking #{refund.booking_id} · Payment #{refund.payment_id}: {refund.reason}
       </p>
       {refund.denial_reason && (
         <p className="mt-1 text-sm text-error-600">Denied: {refund.denial_reason}</p>
@@ -172,40 +173,42 @@ export function RefundsPage() {
   const [filter, setFilter] = useState<string | undefined>("proposed");
   const refunds = useRefunds(filter);
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Refunds" description="Staff propose — owner (or delegated staff) approves and executes." />
-      <ProposeForm />
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Refund ledger</CardTitle>
-            <div className="ml-auto flex gap-1" role="tablist" aria-label="Refund filter">
-              {["proposed", "approved", "denied", undefined].map((s) => (
-                <button
-                  key={s ?? "all"}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === s}
-                  onClick={() => setFilter(s)}
-                  className={cn(
-                    "min-h-[44px] cursor-pointer rounded-lg px-3 text-sm font-semibold",
-                    filter === s ? "bg-primary-50 text-primary-700" : "text-gray-500 hover:bg-gray-50",
-                  )}
-                >
-                  {s ?? "all"}
-                </button>
-              ))}
+    <div className="min-w-0">
+      <PageHeader title="Refunds" description="Review and process customer refund requests." />
+      <div className="space-y-6">
+        <ProposeForm />
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle>Refund ledger</CardTitle>
+              <div className="ml-auto flex gap-1" role="tablist" aria-label="Refund filter">
+                {["proposed", "approved", "denied", undefined].map((s) => (
+                  <button
+                    key={s ?? "all"}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === s}
+                    onClick={() => setFilter(s)}
+                    className={cn(
+                      "min-h-[44px] cursor-pointer rounded-lg px-3 text-sm font-semibold",
+                      filter === s ? "bg-primary-50 text-primary-700" : "text-gray-500 hover:bg-gray-50",
+                    )}
+                  >
+                    {s ?? "all"}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {refunds.isPending && <p className="text-sm text-gray-500">Loading refunds…</p>}
-          {(refunds.data?.items ?? []).map((r) => <RefundCard key={r.id} refund={r} />)}
-          {!refunds.isPending && (refunds.data?.items ?? []).length === 0 && (
-            <p className="text-sm text-gray-500">No refunds in this state.</p>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {refunds.isPending && <p className="text-sm text-gray-500">Loading refunds…</p>}
+            {(refunds.data?.items ?? []).map((r) => <RefundCard key={r.id} refund={r} />)}
+            {!refunds.isPending && (refunds.data?.items ?? []).length === 0 && (
+              <p className="text-sm text-gray-500">No refunds in this state.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

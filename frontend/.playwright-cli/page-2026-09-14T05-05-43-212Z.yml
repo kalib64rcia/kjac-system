@@ -1,0 +1,14 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - heading [level=1]: Drag repro
+      - button: Open sheet
+      - generic:
+        - button:
+          - generic: Pick one
+  - dialog [ref=e2]:
+    - heading "Repro sheet" [level=2] [ref=e3]
+    - separator "Resize details panel" [ref=e4]
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: width:default
+      - button "Close menu" [active] [ref=e13] [cursor=pointer]

@@ -166,6 +166,50 @@
 
 ---
 
+### Color Behavior Rules (v2 — approved Sep 2026)
+
+Tokens above are unchanged; the primary `#38b6ff` ramp is never edited and
+no new hues are introduced. Meaning board (locked): blue = info ·
+amber = waiting · slate = scheduled · teal = live · green = success ·
+red = danger. What v2 changes is *behavior*, following shadcn practice:
+
+1. **One solid primary per region.** The main action in any dialog, toolbar,
+   or row group is solid (`primary-400`, hover `primary-500`, white text).
+   Everything else steps down: outline → ghost → link. Never two solids side
+   by side (ConfirmDialog equal-button pairs excepted).
+2. **Danger confirms go solid red** (`error-500`, hover `error-600`).
+   Row-level danger stays outline-red until the confirm dialog.
+3. **Badges stay soft-fill + edge border**, text one step darker than the
+   fill. Counts and IDs inside badges use `tabular-nums`.
+4. **Hover carries meaning.** Table and list rows hover whisper-blue
+   (`primary-50`), not gray. Selected stays `primary-50` with edge.
+5. **Surfaces:** page `gray-50`, cards white, header rows `gray-50`,
+   borders `gray-200`.
+6. **Disabled/loading controls are frozen, not just dimmed:** `opacity-50`
+   plus the 🚫 cursor — hover still detects (so the cursor shows) but every
+   visual change is twinned back to resting (`disabled:hover:` points at the
+   resting color, `disabled:active:scale-100` cancels the press), and native
+   `disabled` never fires clicks. Rule for new code: any new `hover:` class
+   on a disable-able control needs its `disabled:hover:` twin in the same
+   string.
+7. **Focus stays 2px `primary-600` outline** (shadcn ring equivalent).
+8. **Links `primary-600`, underline on hover.**
+
+#### Vibrancy (v2.1 — approved Sep 2026, primary ramp still untouched)
+
+- **Secondary text darkens one step:** meta lines use `gray-600`, not
+  `gray-500`. True captions and hints may stay `gray-500`.
+- **Border *or* shadow, never both** on cards and table shells: keep the
+  `gray-200` border, drop `shadow-sm`. (Flatter reads crisper and stronger.)
+- **Fills deepen one step where tokens exist:** `success-50`→`success-100`,
+  error edges toward `error-200`, icon-tile washes become fills. Text stays
+  at `700`. Amber holds at `warning-50` (owner call: deeper read mustard).
+  Info and teal hold (no deeper token exists — stated limit, not worked
+  around).
+- **Table headers stay muted `gray-500`** on purpose (scan hierarchy).
+
+---
+
 ## Typography
 
 ### Font Families
@@ -3726,6 +3770,18 @@ Message: "We're performing scheduled maintenance. Thank you for your patience."
 - "Please wait"
 - "Processing"
 - "Loading..."
+
+#### Human Voice (approved Sep 2026 — anti-AI tells)
+- **No em dashes (—) in user-visible copy.** Use a period or colon instead.
+  En dash stays only for ranges (`Mon–Sun`, `Oct 1–3`); the lone `—` stays
+  only as the empty-value placeholder. Never reword user-approved copy to
+  satisfy this — it governs new strings.
+- **Two beats carry it.** Descriptions name the jobs plainly
+  ("Check receipts and confirm down payments"), no triadic prose flourishes.
+- **Errors name the problem plus the recovery** ("Could not send the
+  invite. Try again."), never a bare failure.
+- **Active voice over passive** ("We will let them know", not
+  "They will be notified"). Shop-floor plain English throughout.
 
 ---
 

@@ -27,6 +27,10 @@ WEBP_QUALITY = 85
 MAX_DIMENSION = 2048
 
 
+def _content_type(key: str) -> str:
+    return "image/webp" if key.endswith(".webp") else "image/heic"
+
+
 def detect_kind(data: bytes) -> str | None:
     head = data[:12]
     if head.startswith(ALLOWED_MAGIC["jpeg"]):
@@ -111,16 +115,24 @@ class StorageService:
         return key
 
     def read(self, key: str) -> tuple[bytes, str]:
-        """Return (bytes, content_type). Local backend only for now."""
+        """Return (bytes, content_type), from either backend."""
         if self.backend == "supabase":
-            raise AppError("PAYMENT_002", "Serve receipts from Supabase URLs.", 500)
+            return self._read_supabase(key), _content_type(key)
         target = (self.root / key).resolve()
         if self.root.resolve() not in target.parents:
             raise AppError("PERM_001", "Invalid file path.", 403)
         if not target.is_file():
             raise AppError("BOOKING_001", "Receipt not found.", 404)
-        content_type = "image/webp" if target.suffix == ".webp" else "image/heic"
-        return target.read_bytes(), content_type
+        return target.read_bytes(), _content_type(key)
+
+    def _read_supabase(self, key: str) -> bytes:
+        from supabase import create_client
+
+        if not settings.supabase_secret_key:
+            raise AppError("PAYMENT_002", "Supabase storage not configured.", 500)
+        client = create_client(settings.supabase_url, settings.supabase_secret_key)
+        path = key.split("receipts/", 1)[1] if "receipts/" in key else key
+        return client.storage.from_("receipts").download(path)
 
 
 def get_storage_service() -> StorageService:

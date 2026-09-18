@@ -1,5 +1,7 @@
 """Payment + PSGC schemas."""
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -7,6 +9,7 @@ class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    uuid: UUID
     booking_id: int
     payment_type: str
     amount: float

@@ -1,18 +1,26 @@
 """Payment, refund, and rating models."""
 
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.models.common import created_at_column, deleted_at_column, pk_column, updated_at_column
+from app.models.common import (
+    created_at_column,
+    deleted_at_column,
+    pk_column,
+    updated_at_column,
+    uuid_column,
+)
 
 
 class Payment(Base):
     __tablename__ = "payments"
 
     id: Mapped[int] = pk_column()
+    uuid: Mapped[UUID] = uuid_column()
     booking_id: Mapped[int] = mapped_column(
         ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False
     )
@@ -82,6 +90,10 @@ class Refund(Base):
 
     refund_method: Mapped[str | None] = mapped_column(String(20))
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Manual GCash payout proof: approved = owed, completed = receipt + ref.
+    payout_receipt_url: Mapped[str | None] = mapped_column(Text)
+    payout_reference_number: Mapped[str | None] = mapped_column(String(100))
 
     created_at: Mapped[datetime] = created_at_column()
     updated_at: Mapped[datetime] = updated_at_column()

@@ -6,7 +6,7 @@ export function MissionVision({ content }: { content: LandingContent }) {
   const showVision = content.vision_text.trim().length > 0;
   if (!showMission && !showVision) return null;
   return (
-    <section id="mission-vision" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-14 sm:px-6" aria-label="Mission and vision">
+    <section id="mission-vision" className="mx-auto max-w-7xl px-4 py-14 sm:px-6" aria-label="Mission and vision">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {showMission && (
           <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">

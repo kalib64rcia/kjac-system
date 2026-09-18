@@ -77,5 +77,8 @@ class Settings(BaseSettings):
     allowed_headers: list[str] = ["Authorization", "Content-Type", "X-Admin-2FA"]
     allow_credentials: bool = True
 
+    # Development: disable endpoint rate limiting for testing
+    endpoint_rate_limit_enabled: bool = True
+
 
 settings = Settings()

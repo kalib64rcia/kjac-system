@@ -4,7 +4,12 @@ from fastapi import APIRouter, Query, Request, status
 
 from app.api.deps import AdminTwoFaUser, DbDep, OptionalUser
 from app.core.rate_limit import limiter
-from app.schemas.rating import RatingCreate, RatingResponse, TechnicianRatingsResponse
+from app.schemas.rating import (
+    PublicRatingItem,
+    RatingCreate,
+    RatingResponse,
+    TechnicianRatingsResponse,
+)
 from app.services import rating_service as ratings
 
 router = APIRouter(tags=["ratings"])
@@ -35,7 +40,7 @@ async def get_technician_ratings(
     average, total, rows = await ratings.technician_ratings(db, technician_id, page, limit)
     return TechnicianRatingsResponse(
         technician_id=technician_id, average_rating=average, total=total,
-        items=[RatingResponse.model_validate(r) for r in rows],
+        items=[PublicRatingItem.model_validate(r) for r in rows],
     )
 
 

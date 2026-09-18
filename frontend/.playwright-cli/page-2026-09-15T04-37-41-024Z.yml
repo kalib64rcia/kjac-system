@@ -1,0 +1,178 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "Schedule" [level=1] [ref=e6]
+    - paragraph [ref=e7]: Vacancy grid — room at a glance.
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - paragraph [ref=e13]: Days with room
+      - paragraph [ref=e14]: "6"
+      - paragraph [ref=e15]: At least one open slot
+    - generic [ref=e22]:
+      - paragraph [ref=e23]: Filling days
+      - paragraph [ref=e24]: "0"
+      - paragraph [ref=e25]: Down to the last seats
+    - generic [ref=e32]:
+      - paragraph [ref=e33]: Full days
+      - paragraph [ref=e34]: "1"
+      - paragraph [ref=e35]: Nothing left to sell
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - button "Previous week" [disabled] [ref=e41]: Prev
+      - button "Next week" [ref=e42] [cursor=pointer]: Next
+    - paragraph [ref=e44]: September 14, 2026 – September 20, 2026
+  - table [ref=e47]:
+    - rowgroup [ref=e48]:
+      - row [ref=e49]:
+        - columnheader "Slot" [ref=e50]
+        - columnheader "Mon 14" [ref=e51]
+        - columnheader "Tue 15" [ref=e52]
+        - columnheader "Wed 16" [ref=e53]
+        - columnheader "Thu 17" [ref=e54]
+        - columnheader "Fri 18" [ref=e55]
+        - columnheader "Sat 19" [ref=e56]
+        - columnheader "Sun 20" [ref=e57]
+    - rowgroup [ref=e58]:
+      - row [ref=e59]:
+        - rowheader "8:00 AM" [ref=e60]
+        - cell [ref=e61]:
+          - 'button "September 14, 2026 8:00 AM: Full" [ref=e62] [cursor=pointer]': Full
+        - cell [ref=e63]:
+          - 'button "September 15, 2026 8:00 AM: Last seat" [ref=e64] [cursor=pointer]': Last seat
+        - cell [ref=e65]:
+          - 'button "September 16, 2026 8:00 AM: 2 free" [ref=e66] [cursor=pointer]': 2 free
+        - cell [ref=e67]:
+          - 'button "September 17, 2026 8:00 AM: 2 free" [ref=e68] [cursor=pointer]': 2 free
+        - cell [ref=e69]:
+          - 'button "September 18, 2026 8:00 AM: 2 free" [ref=e70] [cursor=pointer]': 2 free
+        - cell [ref=e71]:
+          - 'button "September 19, 2026 8:00 AM: Full" [ref=e72] [cursor=pointer]': Full
+        - cell [ref=e73]:
+          - 'button "September 20, 2026 8:00 AM: Closed" [disabled] [ref=e74]': Closed
+      - row [ref=e75]:
+        - rowheader "9:00 AM" [ref=e76]
+        - cell [ref=e77]:
+          - 'button "September 14, 2026 9:00 AM: Last seat" [ref=e78] [cursor=pointer]': Last seat
+        - cell [ref=e79]:
+          - 'button "September 15, 2026 9:00 AM: 2 free" [ref=e80] [cursor=pointer]': 2 free
+        - cell [ref=e81]:
+          - 'button "September 16, 2026 9:00 AM: 2 free" [ref=e82] [cursor=pointer]': 2 free
+        - cell [ref=e83]:
+          - 'button "September 17, 2026 9:00 AM: 2 free" [ref=e84] [cursor=pointer]': 2 free
+        - cell [ref=e85]:
+          - 'button "September 18, 2026 9:00 AM: Full" [ref=e86] [cursor=pointer]': Full
+        - cell [ref=e87]:
+          - 'button "September 19, 2026 9:00 AM: Last seat" [ref=e88] [cursor=pointer]': Last seat
+        - cell [ref=e89]:
+          - 'button "September 20, 2026 9:00 AM: Closed" [disabled] [ref=e90]': Closed
+      - row [ref=e91]:
+        - rowheader "10:00 AM" [ref=e92]
+        - cell [ref=e93]:
+          - 'button "September 14, 2026 10:00 AM: 2 free" [ref=e94] [cursor=pointer]': 2 free
+        - cell [ref=e95]:
+          - 'button "September 15, 2026 10:00 AM: 2 free" [ref=e96] [cursor=pointer]': 2 free
+        - cell [ref=e97]:
+          - 'button "September 16, 2026 10:00 AM: 2 free" [ref=e98] [cursor=pointer]': 2 free
+        - cell [ref=e99]:
+          - 'button "September 17, 2026 10:00 AM: Full" [ref=e100] [cursor=pointer]': Full
+        - cell [ref=e101]:
+          - 'button "September 18, 2026 10:00 AM: Last seat" [ref=e102] [cursor=pointer]': Last seat
+        - cell [ref=e103]:
+          - 'button "September 19, 2026 10:00 AM: 2 free" [ref=e104] [cursor=pointer]': 2 free
+        - cell [ref=e105]:
+          - 'button "September 20, 2026 10:00 AM: Closed" [disabled] [ref=e106]': Closed
+      - row [ref=e107]:
+        - rowheader "11:00 AM" [ref=e108]
+        - cell [ref=e109]:
+          - 'button "September 14, 2026 11:00 AM: 2 free" [ref=e110] [cursor=pointer]': 2 free
+        - cell [ref=e111]:
+          - 'button "September 15, 2026 11:00 AM: 2 free" [ref=e112] [cursor=pointer]': 2 free
+        - cell [ref=e113]:
+          - 'button "September 16, 2026 11:00 AM: Full" [ref=e114] [cursor=pointer]': Full
+        - cell [ref=e115]:
+          - 'button "September 17, 2026 11:00 AM: Last seat" [ref=e116] [cursor=pointer]': Last seat
+        - cell [ref=e117]:
+          - 'button "September 18, 2026 11:00 AM: 2 free" [ref=e118] [cursor=pointer]': 2 free
+        - cell [ref=e119]:
+          - 'button "September 19, 2026 11:00 AM: 2 free" [ref=e120] [cursor=pointer]': 2 free
+        - cell [ref=e121]:
+          - 'button "September 20, 2026 11:00 AM: Closed" [disabled] [ref=e122]': Closed
+      - row [ref=e123]:
+        - rowheader "12:00 PM" [ref=e124]
+        - cell [ref=e125]:
+          - 'button "September 14, 2026 12:00 PM: 2 free" [ref=e126] [cursor=pointer]': 2 free
+        - cell [ref=e127]:
+          - 'button "September 15, 2026 12:00 PM: Full" [ref=e128] [cursor=pointer]': Full
+        - cell [ref=e129]:
+          - 'button "September 16, 2026 12:00 PM: Last seat" [ref=e130] [cursor=pointer]': Last seat
+        - cell [ref=e131]:
+          - 'button "September 17, 2026 12:00 PM: 2 free" [ref=e132] [cursor=pointer]': 2 free
+        - cell [ref=e133]:
+          - 'button "September 18, 2026 12:00 PM: 2 free" [ref=e134] [cursor=pointer]': 2 free
+        - cell [ref=e135]:
+          - 'button "September 19, 2026 12:00 PM: 2 free" [ref=e136] [cursor=pointer]': 2 free
+        - cell [ref=e137]:
+          - 'button "September 20, 2026 12:00 PM: Closed" [disabled] [ref=e138]': Closed
+      - row [ref=e139]:
+        - rowheader "1:00 PM" [ref=e140]
+        - cell [ref=e141]:
+          - 'button "September 14, 2026 1:00 PM: Full" [ref=e142] [cursor=pointer]': Full
+        - cell [ref=e143]:
+          - 'button "September 15, 2026 1:00 PM: Last seat" [ref=e144] [cursor=pointer]': Last seat
+        - cell [ref=e145]:
+          - 'button "September 16, 2026 1:00 PM: 2 free" [ref=e146] [cursor=pointer]': 2 free
+        - cell [ref=e147]:
+          - 'button "September 17, 2026 1:00 PM: 2 free" [ref=e148] [cursor=pointer]': 2 free
+        - cell [ref=e149]:
+          - 'button "September 18, 2026 1:00 PM: 2 free" [ref=e150] [cursor=pointer]': 2 free
+        - cell [ref=e151]:
+          - 'button "September 19, 2026 1:00 PM: Full" [ref=e152] [cursor=pointer]': Full
+        - cell [ref=e153]:
+          - 'button "September 20, 2026 1:00 PM: Closed" [disabled] [ref=e154]': Closed
+      - row [ref=e155]:
+        - rowheader "2:00 PM" [ref=e156]
+        - cell [ref=e157]:
+          - 'button "September 14, 2026 2:00 PM: Last seat" [ref=e158] [cursor=pointer]': Last seat
+        - cell [ref=e159]:
+          - 'button "September 15, 2026 2:00 PM: 2 free" [ref=e160] [cursor=pointer]': 2 free
+        - cell [ref=e161]:
+          - 'button "September 16, 2026 2:00 PM: 2 free" [ref=e162] [cursor=pointer]': 2 free
+        - cell [ref=e163]:
+          - 'button "September 17, 2026 2:00 PM: 2 free" [ref=e164] [cursor=pointer]': 2 free
+        - cell [ref=e165]:
+          - 'button "September 18, 2026 2:00 PM: Full" [ref=e166] [cursor=pointer]': Full
+        - cell [ref=e167]:
+          - 'button "September 19, 2026 2:00 PM: Last seat" [ref=e168] [cursor=pointer]': Last seat
+        - cell [ref=e169]:
+          - 'button "September 20, 2026 2:00 PM: Closed" [disabled] [ref=e170]': Closed
+      - row [ref=e171]:
+        - rowheader "3:00 PM" [ref=e172]
+        - cell [ref=e173]:
+          - 'button "September 14, 2026 3:00 PM: 2 free" [ref=e174] [cursor=pointer]': 2 free
+        - cell [ref=e175]:
+          - 'button "September 15, 2026 3:00 PM: 2 free" [ref=e176] [cursor=pointer]': 2 free
+        - cell [ref=e177]:
+          - 'button "September 16, 2026 3:00 PM: 2 free" [ref=e178] [cursor=pointer]': 2 free
+        - cell [ref=e179]:
+          - 'button "September 17, 2026 3:00 PM: Full" [ref=e180] [cursor=pointer]': Full
+        - cell [ref=e181]:
+          - 'button "September 18, 2026 3:00 PM: Last seat" [ref=e182] [cursor=pointer]': Last seat
+        - cell [ref=e183]:
+          - 'button "September 19, 2026 3:00 PM: 2 free" [ref=e184] [cursor=pointer]': 2 free
+        - cell [ref=e185]:
+          - 'button "September 20, 2026 3:00 PM: Closed" [disabled] [ref=e186]': Closed
+      - row [ref=e187]:
+        - rowheader "4:00 PM" [ref=e188]
+        - cell [ref=e189]:
+          - 'button "September 14, 2026 4:00 PM: 2 free" [ref=e190] [cursor=pointer]': 2 free
+        - cell [ref=e191]:
+          - 'button "September 15, 2026 4:00 PM: 2 free" [ref=e192] [cursor=pointer]': 2 free
+        - cell [ref=e193]:
+          - 'button "September 16, 2026 4:00 PM: Full" [ref=e194] [cursor=pointer]': Full
+        - cell [ref=e195]:
+          - 'button "September 17, 2026 4:00 PM: Last seat" [ref=e196] [cursor=pointer]': Last seat
+        - cell [ref=e197]:
+          - 'button "September 18, 2026 4:00 PM: 2 free" [ref=e198] [cursor=pointer]': 2 free
+        - cell [ref=e199]:
+          - 'button "September 19, 2026 4:00 PM: 2 free" [ref=e200] [cursor=pointer]': 2 free
+        - cell [ref=e201]:
+          - 'button "September 20, 2026 4:00 PM: Closed" [disabled] [ref=e202]': Closed

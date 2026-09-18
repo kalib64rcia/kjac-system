@@ -1,4 +1,5 @@
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Copy } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ interface SuccessState {
 
 /** Post-booking success: ref once, countdown, next steps. */
 export function BookingSuccessPage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as SuccessState | null;
   const [copied, setCopied] = useState(false);
@@ -73,12 +75,13 @@ export function BookingSuccessPage() {
               <p className="mt-2">Confirmation details were sent to {state.email}.</p>
             </div>
             <div className="mt-6 flex w-full flex-col gap-2 sm:flex-row">
-              <Link
-                to={`/track?ref=${encodeURIComponent(state.reference_id)}&email=${encodeURIComponent(state.email)}`}
+              <button
+                type="button"
+                onClick={() => navigate('/track', { state: { reference_id: state.reference_id, email: state.email } })}
                 className="inline-flex min-h-[52px] flex-1 items-center justify-center rounded-lg bg-primary-400 px-6 text-base font-semibold text-white hover:bg-primary-500"
               >
                 Upload Payment Now
-              </Link>
+              </button>
               <Link
                 to="/"
                 className="inline-flex min-h-[52px] items-center justify-center rounded-lg px-6 text-base font-semibold text-primary-600 hover:bg-primary-50"

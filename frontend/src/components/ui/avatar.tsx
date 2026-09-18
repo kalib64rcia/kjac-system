@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * Canonical shadcn/new-york Avatar API (Radix primitives, data-* slots)
- * with KJAC DESIGN.md tokens. No photo storage yet — AvatarFallback with
- * initials is the live path; AvatarImage is exported for later.
+ * with KJAC DESIGN.md tokens. AvatarFallback with initials is the live
+ * path (no photo storage yet).
  */
 function Avatar({
   className,
@@ -18,19 +18,6 @@ function Avatar({
         "relative flex size-10 shrink-0 overflow-hidden rounded-full",
         className,
       )}
-      {...props}
-    />
-  );
-}
-
-function AvatarImage({
-  className,
-  ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  return (
-    <AvatarPrimitive.Image
-      data-slot="avatar-image"
-      className={cn("aspect-square size-full", className)}
       {...props}
     />
   );
@@ -52,4 +39,4 @@ function AvatarFallback({
   );
 }
 
-export { Avatar, AvatarImage, AvatarFallback };
+export { Avatar, AvatarFallback };

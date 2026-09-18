@@ -1,5 +1,5 @@
 import { SingleAccordionItem as AccordionItem } from "@/components/ui/accordion";
-import { DotGrid } from "./Decor";
+import { SectionDotGrid } from "./Decor";
 
 const FALLBACK_FAQS = [
   {
@@ -28,17 +28,19 @@ const FALLBACK_FAQS = [
 export function Faq({ items }: { items: { q: string; a: string }[] }) {
   const faqs = items.length > 0 ? items : FALLBACK_FAQS;
   return (
-    <section id="faqs" className="relative mx-auto max-w-3xl scroll-mt-24 overflow-hidden px-4 py-14 sm:px-6" aria-label="FAQs">
-      <DotGrid className="bottom-8 left-2 hidden sm:block" />
-      <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
-        Frequently Asked Questions
-      </h2>
-      <div className="mt-8 flex flex-col gap-3">
-        {faqs.map((f) => (
-          <AccordionItem key={f.q} title={f.q}>
-            <p>{f.a}</p>
-          </AccordionItem>
-        ))}
+    <section id="faqs" className="relative overflow-hidden py-14" aria-label="FAQs">
+      <SectionDotGrid variant="subtle" />
+      <div className="relative mx-auto max-w-3xl px-4 sm:px-6">
+        <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
+          Frequently Asked Questions
+        </h2>
+        <div className="mt-8 flex flex-col gap-3">
+          {faqs.map((f) => (
+            <AccordionItem key={f.q} title={f.q}>
+              <p>{f.a}</p>
+            </AccordionItem>
+          ))}
+        </div>
       </div>
     </section>
   );

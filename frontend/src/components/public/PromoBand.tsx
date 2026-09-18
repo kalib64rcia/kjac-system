@@ -22,7 +22,7 @@ export function PromoBand() {
           to="/book"
           className="mt-6 inline-flex min-h-[52px] items-center justify-center rounded-lg bg-primary-400 px-8 text-base font-semibold text-white hover:bg-primary-500"
         >
-          Book Service
+          Book Service Now
         </Link>
       </div>
     </section>

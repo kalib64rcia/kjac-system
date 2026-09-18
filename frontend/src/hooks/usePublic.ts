@@ -49,11 +49,16 @@ export function useProvinces(regionCode: string | null) {
   });
 }
 
-export function useCities(provinceCode: string | null) {
+export function useCities(provinceCode: string | null, regionCode: string | null = null) {
+  const byProvince = !!provinceCode;
+  const byRegion = !provinceCode && !!regionCode;
   return useQuery({
-    queryKey: queryKeys.psgc.cities(provinceCode ?? ""),
-    queryFn: () => psgcApi.cities(provinceCode as string),
-    enabled: !!provinceCode,
+    queryKey: queryKeys.psgc.cities(provinceCode ?? "", byRegion ? (regionCode ?? "") : ""),
+    queryFn: () =>
+      byProvince
+        ? psgcApi.cities({ province_code: provinceCode as string })
+        : psgcApi.cities({ region_code: regionCode as string }),
+    enabled: byProvince || byRegion,
     staleTime: 24 * 60 * 60 * 1000,
   });
 }
@@ -64,6 +69,22 @@ export function useBarangays(cityCode: string | null) {
     queryFn: () => psgcApi.barangays(cityCode as string),
     enabled: !!cityCode,
     staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+export function useSlotAvailability(from: string, to: string) {
+  return useQuery({
+    queryKey: queryKeys.booking.availability(from, to),
+    queryFn: () => bookingApi.availability(from, to),
+    staleTime: 2 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+export function useCreateHold() {
+  return useMutation({
+    mutationFn: ({ date, time }: { date: string; time: string }) =>
+      bookingApi.createHold(date, time),
   });
 }
 

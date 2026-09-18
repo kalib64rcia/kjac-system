@@ -869,7 +869,152 @@ Content-Type: application/json
 - `preferred_date`: Cannot be Sunday (if `allow_sunday_bookings` setting = false)
 - `preferred_time`: Must be between 8:00 AM - 5:00 PM
 - `service_id`, `brand_id`: Must exist and be active
+- Seat guard: a slot with no public seats left answers 409 `BOOKING_006`
+  ("That slot just filled"); an expired/mismatched `hold_token` answers
+  409 `BOOKING_003` ("Hold expired")
 - Rate limit: 3 bookings per 30 minutes per user/IP
+
+---
+
+### 3.1a Slot Availability + Holds (Public, Phase A)
+
+States only — counts never leave the server (privacy P1–P3).
+
+```http
+GET /slots/availability?date_from=2026-09-15&date_to=2026-09-21
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "days": [
+      {
+        "date": "2026-09-15",
+        "slots": [
+          { "time": "08:00", "state": "open" },
+          { "time": "09:00", "state": "low" },
+          { "time": "10:00", "state": "full" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- `state`: `open` | `low` (filling) | `full` | `closed` (rules: past,
+  Sunday unless enabled, same-day cutoff, 8 AM–4 PM window, 30-day max).
+- `low` also requires something taken (untouched slots read `open`).
+- Public allocation = real seats (active technicians) minus occupied
+  (`submitted`/`pending`/`confirmed`/`ongoing` + live holds) minus
+  `slot_house_reserve`. Tunables: `slot_house_reserve` (1),
+  `slot_low_threshold` (2), `slot_hold_minutes` (10).
+
+```http
+POST /slots/holds
+Content-Type: application/json
+
+{
+  "preferred_date": "2026-09-15",
+  "preferred_time": "09:00:00"
+}
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "reference": "KJAC-2026-ABC123",
+    "hold_token": "<unguessable, shown once>",
+    "expires_at": "2026-09-10T14:40:00+08:00"
+  }
+}
+```
+
+- Holds a seat while the guest types. Pass `hold_token` on `POST /bookings`;
+  without one the submit guard still applies. Rate limit: 10/minute.
+- Window bookings: `flex_window` is `"morning"` (anchor `08:00`) or
+  `"afternoon"` (anchor `12:00`); `preferred_time` must equal the anchor.
+  Counts against every slot in the window; submit needs any room left.
+
+### 3.1b Set Slot (Office: place a window booking's exact hour)
+
+```http
+PATCH /admin/bookings/456/set-slot
+Content-Type: application/json
+
+{
+  "preferred_date": "2026-09-15",
+  "preferred_time": "09:00:00"
+}
+```
+
+- Same promised day and window only (else 422 — wider moves are the
+  customer reschedule flow). Guard-checked like a fresh submit (409 if
+  just filled), audit-logged, customer emailed the exact hour.
+
+### 3.1c Vacancy + Waitlist + Reminders (Phase B)
+
+```http
+GET /admin/slots/vacancy?date_from=2026-09-15&date_to=2026-09-21
+```
+- Office vacancy grid: public states plus the numbers behind them
+  (`capacity`, `booked`, `holds`, `left` per slot). Office eyes only.
+
+```http
+POST /waitlist
+Content-Type: application/json
+
+{
+  "preferred_date": "2026-09-19",
+  "name": "Wally List",
+  "phone": "09171234567",
+  "email": "wally@example.com"
+}
+```
+- Guest joins the line for a FULL day only (422 if room is left —
+  book directly). Email required: the offer arrives as a booking link.
+  Daily cap via `waitlist_per_day_cap` (default 10).
+
+```http
+GET /admin/waitlist?day=2026-09-19
+POST /admin/waitlist/7/offer        { "preferred_time": "09:00:00" }
+POST /admin/waitlist/7/remove
+```
+- Offer places a guard-checked hold (TTL via `waitlist_offer_ttl_hours`,
+  default 24) and emails a `/book?hold=&date=&time=` link. 409 when the
+  slot has no room or the entry is already handled.
+
+```http
+POST /admin/reminders/run
+```
+- One manual pass of guest nudges (the db-cron runner calls the same
+  service): tomorrow's pending/confirmed bookings + submitted bookings
+  expiring within 2h (stamped, never resent). Toggles:
+  `reminder_booking_tomorrow_enabled`,
+  `reminder_payment_expiring_enabled` (PATCH /admin/settings/{key},
+  owner only).
+
+### 3.1d Roster + Day Order (Phase D + day plan)
+
+```http
+GET /admin/roster
+PUT /admin/roster/301/days    { "days": [false, true, true, true, true, true, true] }
+POST /admin/roster/time-off   { "user_id": 301, "date_from": "2026-09-22",
+                                "date_to": "2026-09-25", "reason": "Leave" }
+DELETE /admin/roster/time-off/4
+```
+- Weekly template (Mon..Sun flags, default all-working — capacity is
+  unchanged until the office touches it) + leave ranges (leave wins).
+  Capacity becomes techs-on-shift that day; Sundays stay globally closed.
+
+```http
+POST /admin/bookings/day-order   { "preferred_date": "2026-10-02",
+                                   "ordered_ids": [9, 4, 7] }
+```
+- Manual day-plan order (Sta Cruz before Cavinti): listed ids take
+  positions 1..n, the rest go unordered (sort by time). The office owns
+  the roads; the system only stores the sequence.
 
 ---
 
@@ -1185,7 +1330,7 @@ Content-Type: application/json
 ### 4.1 Upload Payment Receipt
 
 ```http
-POST /bookings/{booking_id}/payment
+POST /bookings/{reference_id}/payment
 Authorization: Bearer {access_token} # Optional for guest
 Content-Type: multipart/form-data
 
@@ -1193,6 +1338,12 @@ file: [binary image data]
 gcash_reference_number: "GC-REF-123456789"
 amount: 500.00
 ```
+
+> Identifier rule (C10): public payment routes key off the unguessable
+> booking `reference_id` (C4) and the payment `uuid`. Receipts stream at
+> `GET /payments/{payment_uuid}/receipt` (owner-proof required).
+> Admin verify keeps the integer id behind 2FA:
+> `PATCH /admin/payments/{payment_id}/verify`.
 
 **Response:**
 ```json

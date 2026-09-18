@@ -1,38 +1,36 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Dot-grid accent with blue tint (decorative section corners). */
-export function DotGrid({ className }: { className?: string }) {
+/** Full-section dot grid with subtle gradient pattern and smooth radial fade. */
+export function SectionDotGrid({
+  variant = "subtle",
+  className,
+}: {
+  variant?: "subtle" | "primary";
+  className?: string;
+}) {
   return (
     <div
       aria-hidden="true"
-      className={cn("pointer-events-none absolute h-48 w-48 opacity-100", className)}
-      style={{
-        backgroundImage: "radial-gradient(rgba(0,144,230,0.18) 1.5px, transparent 1.5px)",
-        backgroundSize: "18px 18px",
-      }}
-    />
-  );
-}
-
-/** Slow-drifting blurred color blobs (subtle life; silenced by reduced-motion). */
-export function Blobs({ variant = "cool" }: { variant?: "cool" | "warm" | "mono" }) {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      <span
+      className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}
+    >
+      {/* Soft gradient base */}
+      <div
         className={cn(
-          "absolute -left-20 top-10 h-72 w-72 rounded-full blur-3xl animate-blob-a",
-          variant === "cool" && "bg-primary-100/70",
-          variant === "warm" && "bg-warning-50",
-          variant === "mono" && "bg-gray-100",
+          "absolute inset-0",
+          variant === "primary"
+            ? "bg-gradient-to-b from-primary-50/60 via-sky-50/20 to-white"
+            : "bg-gradient-to-b from-slate-50/90 via-gray-50/50 to-white",
         )}
       />
-      <span
+      {/* 24px dot grid matrix with smooth vignette mask */}
+      <div
         className={cn(
-          "absolute -right-16 bottom-0 h-80 w-80 rounded-full blur-3xl animate-blob-b",
-          variant === "cool" && "bg-secondary-light/30",
-          variant === "warm" && "bg-primary-100/60",
-          variant === "mono" && "bg-gray-100/80",
+          "absolute inset-0 [background-size:24px_24px]",
+          variant === "primary"
+            ? "bg-[radial-gradient(rgba(0,144,230,0.18)_1.25px,transparent_1.25px)]"
+            : "bg-[radial-gradient(rgba(100,116,139,0.16)_1.25px,transparent_1.25px)]",
+          "[mask-image:radial-gradient(ellipse_at_center,black_50%,transparent_90%)]",
         )}
       />
     </div>

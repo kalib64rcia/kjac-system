@@ -3,144 +3,52 @@
 Owner collects the email in person → system emails a single-use link →
 staffer completes their own uniform employee form → pending → owner review
 → activate. No public signup surface; no emailed passwords.
+
+Shared mechanics live in invite_service; only accept_invite stays here
+(staff role + owner-only fan-out).
 """
 
-import hashlib
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.errors import AppError
 from app.models.staff_invite import StaffInvite
 from app.models.users import User
+from app.services import invite_service as invites
 from app.services.email_service import EmailService
 from app.services.notify_service import notify
-
-INVITE_TTL_DAYS = 7
-
-
-def _hash(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def _invite_link(token: str) -> str:
-    return f"{settings.public_app_url.rstrip('/')}/staff/accept?token={token}"
-
-
-async def _live_invite_for_email(
-    db: AsyncSession, email: str
-) -> StaffInvite | None:
-    result = await db.execute(
-        select(StaffInvite)
-        .where(
-            func.lower(StaffInvite.email) == email.lower(),
-            StaffInvite.used_at.is_(None),
-            StaffInvite.revoked_at.is_(None),
-            StaffInvite.expires_at > datetime.now(UTC),
-        )
-        .order_by(StaffInvite.id.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
 
 
 async def send_invite(
     db: AsyncSession, mailer: EmailService, owner: User, email: str
 ) -> StaffInvite:
-    email = email.strip().lower()
-    existing = await db.execute(select(User.id).where(func.lower(User.email) == email))
-    if existing.scalar_one_or_none() is not None:
-        raise AppError("BOOKING_003", "An account with this email already exists.", 409)
-    if await _live_invite_for_email(db, email) is not None:
-        raise AppError("BOOKING_003", "A live invite already exists for this email.", 409)
-    token = secrets.token_urlsafe(32)
-    row = StaffInvite(
-        email=email,
-        token_hash=_hash(token),
-        expires_at=datetime.now(UTC) + timedelta(days=INVITE_TTL_DAYS),
-        created_by_owner_id=owner.id,
+    return await invites.send_invite(
+        db, StaffInvite, mailer.send_staff_invite, "/staff/accept",
+        {"created_by_owner_id": owner.id}, email,
     )
-    db.add(row)
-    await db.commit()
-    await db.refresh(row)
-    mailer.send_staff_invite(email, _invite_link(token))
-    return row
 
 
 async def list_invites(db: AsyncSession) -> list[StaffInvite]:
-    result = await db.execute(
-        select(StaffInvite).order_by(StaffInvite.id.desc()).limit(100)
-    )
-    return list(result.scalars())
+    return await invites.list_invites(db, StaffInvite)
 
 
 async def resend_invite(
     db: AsyncSession, mailer: EmailService, invite_id: int
 ) -> StaffInvite:
-    row = await db.get(StaffInvite, invite_id)
-    if row is None:
-        raise AppError("BOOKING_001", "Invite not found.", 404)
-    if row.used_at is not None:
-        raise AppError("BOOKING_003", "Invite already used.", 409)
-    if row.revoked_at is not None:
-        raise AppError("BOOKING_003", "Invite revoked. Create a new one.", 409)
-    token = secrets.token_urlsafe(32)
-    row.token_hash = _hash(token)
-    row.expires_at = datetime.now(UTC) + timedelta(days=INVITE_TTL_DAYS)
-    await db.commit()
-    await db.refresh(row)
-    mailer.send_staff_invite(row.email, _invite_link(token))
-    return row
+    return await invites.resend_invite(
+        db, StaffInvite, mailer.send_staff_invite, "/staff/accept", invite_id
+    )
 
 
 async def revoke_invite(db: AsyncSession, invite_id: int) -> StaffInvite:
-    row = await db.get(StaffInvite, invite_id)
-    if row is None:
-        raise AppError("BOOKING_001", "Invite not found.", 404)
-    if row.used_at is not None:
-        raise AppError("BOOKING_003", "Invite already used.", 409)
-    row.revoked_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(row)
-    return row
-
-
-async def _usable_invite(db: AsyncSession, token: str) -> StaffInvite | None:
-    """Same resume contract as technician invites: usable until decided;
-    used_at means 'mailbox proven', not 'burned'."""
-    result = await db.execute(
-        select(StaffInvite).where(StaffInvite.token_hash == _hash(token))
-    )
-    invite = result.scalar_one_or_none()
-    if invite is None:
-        return None
-    if invite.revoked_at is not None:
-        return None
-    if invite.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
-        return None
-    return invite
+    return await invites.revoke_invite(db, StaffInvite, invite_id)
 
 
 async def invite_state(db: AsyncSession, token: str) -> dict:
     """Resume state for a staff invite link (see tech_invite_service)."""
-    invite = await _usable_invite(db, token)
-    if invite is None:
-        return {"state": "invalid"}
-    result = await db.execute(
-        select(User).where(func.lower(User.email) == invite.email.lower())
-    )
-    user = result.scalar_one_or_none()
-    if user is None:
-        return {"state": "new", "email": invite.email}
-    if user.status == "pending_approval":
-        return {
-            "state": "needs_login" if user.uuid is None else "waiting_approval",
-            "email": invite.email,
-        }
-    return {"state": "decided", "status": user.status, "email": invite.email}
+    return await invites.invite_state(db, StaffInvite, token)
 
 
 async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
@@ -148,7 +56,7 @@ async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
 
     Idempotent for same token + same email while still pending.
     """
-    invite = await _usable_invite(db, token)
+    invite = await invites.usable_invite(db, StaffInvite, token)
     if invite is None:
         raise AppError("AUTH_005", "Invite is invalid, expired, or already used.", 400)
     if fields["email"].strip().lower() != invite.email.lower():

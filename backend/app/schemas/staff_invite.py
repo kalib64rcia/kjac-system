@@ -34,7 +34,7 @@ class StaffInviteAccept(BaseModel):
     gender: Literal["male", "female"]
     date_of_birth: date
     region_code: str = Field(min_length=1, max_length=20)
-    province_code: str = Field(min_length=1, max_length=20)
+    province_code: str = Field(default="", max_length=20)
     city_municipality_code: str = Field(min_length=1, max_length=20)
     barangay_code: str = Field(min_length=1, max_length=20)
     privacy_consent: Literal[True]

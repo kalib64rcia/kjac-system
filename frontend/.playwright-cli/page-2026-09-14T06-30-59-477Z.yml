@@ -1,0 +1,121 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "KJAC home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Klein & Justin Airconditioning" [ref=e8]
+      - navigation "Primary" [ref=e9]:
+        - link "Home" [ref=e10] [cursor=pointer]:
+          - /url: /
+        - button "About" [ref=e11] [cursor=pointer]
+        - button "Services" [ref=e12] [cursor=pointer]
+        - button "Brands" [ref=e15] [cursor=pointer]
+        - button "More" [ref=e18] [cursor=pointer]
+      - generic [ref=e21]:
+        - link "Track Booking" [ref=e22] [cursor=pointer]:
+          - /url: /track
+        - link "Book Now" [ref=e23] [cursor=pointer]:
+          - /url: /book
+  - link "Skip to content" [ref=e24] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=e28]:
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - heading "Book Your Appointment" [level=1] [ref=e32]
+        - paragraph [ref=e33]: No account needed · Fast & easy · Secure payment
+      - form "Book service" [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e36]:
+            - 'heading "Step 1: Your Information" [level=3] [ref=e38]'
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - generic [ref=e42]: First name *
+                - textbox "First name *" [ref=e43]
+              - generic [ref=e44]:
+                - generic [ref=e45]: Last name *
+                - textbox "Last name *" [ref=e46]
+              - generic [ref=e47]:
+                - generic [ref=e48]: Email *
+                - textbox "Email *" [ref=e49]:
+                  - /placeholder: you@email.com
+                - alert [ref=e50]: We'll send booking confirmation here.
+              - generic [ref=e51]:
+                - generic [ref=e52]: Contact number *
+                - textbox "Contact number *" [ref=e53]:
+                  - /placeholder: 09XX-XXX-XXXX
+          - generic [ref=e54]:
+            - 'heading "Step 2: Service Location" [level=3] [ref=e56]'
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]: Region *
+                - button "Filter by region" [disabled] [ref=e61]:
+                  - generic [ref=e62]: Select region
+              - generic [ref=e63]:
+                - generic [ref=e64]: Province *
+                - button "Filter by province" [disabled] [ref=e65]:
+                  - generic [ref=e66]: Select a region first
+              - generic [ref=e67]:
+                - generic [ref=e68]: City / Municipality *
+                - button "Filter by city / municipality" [disabled] [ref=e69]:
+                  - generic [ref=e70]: Select a province first
+              - generic [ref=e71]:
+                - generic [ref=e72]: Barangay *
+                - button "Filter by barangay" [disabled] [ref=e73]:
+                  - generic [ref=e74]: Select a city first
+              - generic [ref=e75]:
+                - generic [ref=e76]: Street address *
+                - textbox "Street address *" [ref=e77]:
+                  - /placeholder: "House #, Street, Subdivision"
+              - generic [ref=e78]:
+                - generic [ref=e79]: Landmark *
+                - textbox "Landmark *" [ref=e80]:
+                  - /placeholder: e.g., Near McDonald's, green gate
+          - generic [ref=e81]:
+            - 'heading "Step 3: Service Details" [level=3] [ref=e83]'
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - generic [ref=e87]: Aircon brand *
+                - button "Filter by brands" [disabled] [ref=e88]:
+                  - generic [ref=e89]: Select brand
+              - generic [ref=e90]:
+                - generic [ref=e91]: Service type *
+                - button "Filter by services" [disabled] [ref=e92]:
+                  - generic [ref=e93]: Select service
+              - generic [ref=e94]:
+                - generic [ref=e95]: Problem description (optional)
+                - textbox "Problem description (optional)" [ref=e96]:
+                  - /placeholder: Describe the issue with your aircon
+          - generic [ref=e97]:
+            - 'heading "Step 4: Schedule" [level=3] [ref=e99]'
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]: Preferred date *
+                - button "Preferred date *" [ref=e104] [cursor=pointer]:
+                  - generic [ref=e105]: Pick a date
+                - paragraph [ref=e108]: Closed on Sundays.
+              - generic [ref=e109]:
+                - generic [ref=e110]: Preferred time *
+                - radiogroup "Preferred time *" [ref=e111]:
+                  - radio "08:00" [ref=e112] [cursor=pointer]
+                  - radio "09:00" [ref=e113] [cursor=pointer]
+                  - radio "10:00" [ref=e114] [cursor=pointer]
+                  - radio "11:00" [ref=e115] [cursor=pointer]
+                  - radio "12:00" [ref=e116] [cursor=pointer]
+                  - radio "13:00" [ref=e117] [cursor=pointer]
+                  - radio "14:00" [ref=e118] [cursor=pointer]
+                  - radio "15:00" [ref=e119] [cursor=pointer]
+                  - radio "16:00" [ref=e120] [cursor=pointer]
+          - generic [ref=e121]:
+            - heading "Review & Submit" [level=3] [ref=e123]
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - paragraph [ref=e126]: Payment & cancellation policy
+                - paragraph [ref=e127]: A GCash down payment is required within 3 hours of booking. Advance cancellations receive a full auto-refund.
+              - generic [ref=e128] [cursor=pointer]:
+                - checkbox "I agree to the payment and cancellation policies *" [ref=e129]
+                - text: I agree to the payment and cancellation policies *
+              - generic [ref=e130] [cursor=pointer]:
+                - checkbox "I agree to the terms of service *" [ref=e131]
+                - text: I agree to the terms of service *
+              - button "Submit Booking" [ref=e132] [cursor=pointer]
+              - paragraph [ref=e133]: The down payment for your chosen service (shown in Step 3) is due via GCash within 3 hours of booking.

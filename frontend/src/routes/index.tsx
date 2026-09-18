@@ -3,11 +3,22 @@ import { AdminLayout } from "@/layouts/AdminLayout";
 import { AuthLayout } from "@/layouts/AuthLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { OwnerDashboardPage, StaffDashboardPage } from "@/pages/office/Dashboards";
-import { ModulePlaceholder } from "@/pages/office/ModulePlaceholder";
+import { AnalyticsPage } from "@/pages/office/AnalyticsPage";
+import { BookingsPage } from "@/pages/office/BookingsPage";
+import { CatalogPage } from "@/pages/office/CatalogPage";
+import { CustomersPage } from "@/pages/office/CustomersPage";
+import { InventoryPage } from "@/pages/office/InventoryPage";
+import { NotificationsPage } from "@/pages/office/NotificationsPage";
+import { PaymentsPage } from "@/pages/office/PaymentsPage";
+import { PayrollPage } from "@/pages/office/PayrollPage";
+import { RatingsPage } from "@/pages/office/RatingsPage";
+import { ReportsPage } from "@/pages/office/ReportsPage";
+import { SchedulePage } from "@/pages/office/SchedulePage";
+import { SettingsPage } from "@/pages/office/SettingsPage";
+import { TeamManagementPage } from "@/pages/office/TeamManagementPage";
 import { ProfilePage } from "@/pages/office/ProfilePage";
 import { RefundsPage } from "@/pages/office/RefundsPage";
 import { AuditPage } from "@/pages/owner/AuditPage";
-import { ApprovalsPage, StaffPage } from "@/pages/owner/StaffPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
@@ -45,33 +56,37 @@ function StaffShell({ children }: { children: React.ReactNode }) {
 const ownerRoutes = [
   { path: "dashboard", el: <OwnerDashboardPage /> },
   { path: "profile", el: <ProfilePage /> },
-  { path: "bookings", el: <ModulePlaceholder title="Bookings" hint="Dispatch board ships with the bookings module." /> },
-  { path: "payments", el: <ModulePlaceholder title="Payments" hint="Verification queue ships with the payments module." /> },
-  { path: "customers", el: <ModulePlaceholder title="Customers" /> },
-  { path: "technicians", el: <ModulePlaceholder title="Technicians" /> },
-  { path: "inventory", el: <ModulePlaceholder title="Inventory" /> },
-  { path: "notifications", el: <ModulePlaceholder title="Notifications" /> },
-  { path: "staff", el: <StaffPage /> },
-  { path: "approvals", el: <ApprovalsPage /> },
+  { path: "bookings", el: <BookingsPage /> },
+  { path: "schedule", el: <SchedulePage /> },
+  { path: "payments", el: <PaymentsPage /> },
+  { path: "customers", el: <CustomersPage /> },
+  { path: "team", el: <TeamManagementPage /> },
+  { path: "inventory", el: <InventoryPage /> },
+  { path: "notifications", el: <NotificationsPage /> },
   { path: "refunds", el: <RefundsPage /> },
-  { path: "analytics", el: <ModulePlaceholder title="Analytics" /> },
-  { path: "reports", el: <ModulePlaceholder title="Reports" /> },
-  { path: "payroll", el: <ModulePlaceholder title="Payroll" hint="Owner-only salaries and payouts." /> },
+  { path: "catalog", el: <CatalogPage /> },
+  { path: "ratings", el: <RatingsPage /> },
+  { path: "analytics", el: <AnalyticsPage /> },
+  { path: "reports", el: <ReportsPage /> },
+  { path: "payroll", el: <PayrollPage /> },
   { path: "audit-logs", el: <AuditPage /> },
-  { path: "settings", el: <ModulePlaceholder title="Settings" hint="Business rules, GCash numbers, backup contact." /> },
+  { path: "settings", el: <SettingsPage /> },
 ];
 
 const staffRoutes = [
   { path: "dashboard", el: <StaffDashboardPage /> },
   { path: "profile", el: <ProfilePage /> },
-  { path: "bookings", el: <ModulePlaceholder title="Bookings" hint="Dispatch board ships with the bookings module." /> },
-  { path: "payments", el: <ModulePlaceholder title="Payments" hint="Verification queue ships with the payments module." /> },
+  { path: "bookings", el: <BookingsPage /> },
+  { path: "schedule", el: <SchedulePage /> },
+  { path: "payments", el: <PaymentsPage /> },
   { path: "refunds", el: <RefundsPage /> },
-  { path: "customers", el: <ModulePlaceholder title="Customers" /> },
-  { path: "technicians", el: <ModulePlaceholder title="Technicians" /> },
-  { path: "inventory", el: <ModulePlaceholder title="Inventory" /> },
-  { path: "notifications", el: <ModulePlaceholder title="Notifications" /> },
-  { path: "reports", el: <ModulePlaceholder title="Reports" /> },
+  { path: "customers", el: <CustomersPage /> },
+  { path: "team", el: <TeamManagementPage /> },
+  { path: "inventory", el: <InventoryPage /> },
+  { path: "notifications", el: <NotificationsPage /> },
+  { path: "catalog", el: <CatalogPage /> },
+  { path: "ratings", el: <RatingsPage /> },
+  { path: "reports", el: <ReportsPage /> },
 ];
 
 export const router = createBrowserRouter([

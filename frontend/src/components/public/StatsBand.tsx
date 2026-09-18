@@ -14,7 +14,7 @@ export function StatsBand() {
           role="listitem"
           className="rounded-lg border border-gray-200 bg-white px-2 py-4 text-center"
         >
-          <p className="font-technical text-xl font-semibold text-gray-900 sm:text-3xl">
+          <p className="text-xl font-semibold tabular-nums text-gray-900 sm:text-3xl">
             {s.value}
           </p>
           <p className="mt-1 text-xs font-medium text-gray-600 sm:text-sm">{s.label}</p>

@@ -20,8 +20,17 @@ class RatingResponse(BaseModel):
     review_text: str | None = None
 
 
+class PublicRatingItem(BaseModel):
+    """Technician wall: stars + words only (no internal linkage ids)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rating: int
+    review_text: str | None = None
+
+
 class TechnicianRatingsResponse(BaseModel):
     technician_id: int
     average_rating: float
     total: int
-    items: list[RatingResponse]
+    items: list[PublicRatingItem]

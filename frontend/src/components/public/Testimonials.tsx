@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SectionDotGrid } from "./Decor";
 import { StatsBand } from "./StatsBand";
 import { cn } from "@/lib/utils";
 
@@ -50,8 +52,9 @@ export function Testimonials() {
   const t = TESTIMONIALS[index] as (typeof TESTIMONIALS)[number];
 
   return (
-    <section id="testimonials" className="scroll-mt-24 bg-gray-50 py-14" aria-label="Testimonials">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+    <section id="testimonials" className="relative overflow-hidden py-14" aria-label="Testimonials">
+      <SectionDotGrid variant="primary" />
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
         <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
           What Our Customers Say
         </h2>
@@ -88,14 +91,16 @@ export function Testimonials() {
             </CardContent>
           </Card>
           <div className="mt-4 flex items-center justify-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => go(-1)}
               aria-label="Previous testimonial"
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:border-primary-300 hover:text-primary-600"
+              className="rounded-full border-gray-200 bg-white p-0 text-gray-600 hover:border-primary-300 hover:text-primary-600"
             >
               <ChevronLeft size={20} />
-            </button>
+            </Button>
             <div className="flex gap-2" role="tablist" aria-label="Testimonials">
               {TESTIMONIALS.map((item, i) => (
                 <button
@@ -119,14 +124,16 @@ export function Testimonials() {
                 </button>
               ))}
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => go(1)}
               aria-label="Next testimonial"
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 hover:border-primary-300 hover:text-primary-600"
+              className="rounded-full border-gray-200 bg-white p-0 text-gray-600 hover:border-primary-300 hover:text-primary-600"
             >
               <ChevronRight size={20} />
-            </button>
+            </Button>
           </div>
         </div>
         <div className="mt-8">

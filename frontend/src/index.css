@@ -23,11 +23,13 @@
   --color-secondary-accent: #00d4ff;
 
   --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
   --color-success-500: #22c55e;
   --color-success-600: #16a34a;
   --color-success-700: #15803d;
 
   --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
   --color-warning-500: #f59e0b;
   --color-warning-600: #d97706;
   --color-warning-700: #b45309;
@@ -42,6 +44,14 @@
   --color-info-500: #3b82f6;
   --color-info-600: #2563eb;
 
+  /* Teal — live/active accent (meaning-locked: running work, trends). */
+  --color-teal-50: #f0fdfa;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0d9488;
+  --color-teal-700: #0f766e;
+
+
+
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
@@ -49,6 +59,8 @@
 
   --animate-toast-in: toast-in 300ms ease;
   --animate-drawer-in: drawer-in 300ms ease;
+  --animate-drawer-right: drawer-right 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-drawer-right-out: drawer-right-out 200ms ease-in;
   --animate-fade-in: fade-in 200ms ease-out;
   --animate-blob-a: blob-a 22s ease-in-out infinite alternate;
   --animate-blob-b: blob-b 26s ease-in-out infinite alternate;
@@ -73,6 +85,24 @@
     }
     to {
       transform: translateX(0);
+    }
+  }
+
+  @keyframes drawer-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes drawer-right-out {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
     }
   }
 
@@ -218,6 +248,14 @@
   .thin-scroll:focus-within::-webkit-scrollbar-thumb {
     background: rgb(209 213 219 / 0.5);
     background-clip: content-box;
+  }
+
+  /* Dropdown lists: hold the box width so long options end with ...
+   * (the scroll lib wraps rows in a stretchy inner box; lock it here,
+   * scoped to popover lists only). */
+  .popover-list [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+    max-width: 100%;
   }
 
   /* Zero-bar scrolling for carousels (arrows + dots carry affordance). */

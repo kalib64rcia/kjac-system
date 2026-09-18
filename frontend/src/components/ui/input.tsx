@@ -1,5 +1,6 @@
 import * as React from "react";
 import * as LabelPrimitive from "@radix-ui/react-label";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
@@ -8,11 +9,43 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary-600 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 aria-[invalid=true]:border-error-500",
+        "flex min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary-600 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:hover:border-gray-200 aria-[invalid=true]:border-error-500",
         className,
       )}
       {...props}
     />
+  );
+}
+
+interface PasswordInputProps extends React.ComponentProps<"input"> {
+  containerClassName?: string;
+}
+
+function PasswordInput({ className, containerClassName, ...props }: PasswordInputProps) {
+  const [showPassword, setShowPassword] = React.useState(false);
+
+  return (
+    <div className={cn("relative flex items-center", containerClassName)}>
+      <Input
+        type={showPassword ? "text" : "password"}
+        className={cn("pr-11", className)}
+        {...props}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShowPassword((prev) => !prev)}
+        className="absolute right-1.5 flex h-9 w-9 items-center justify-center rounded-md text-gray-400 hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 transition-colors cursor-pointer"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+        title={showPassword ? "Hide password" : "Show password"}
+      >
+        {showPassword ? (
+          <EyeOff size={18} aria-hidden="true" className="shrink-0" />
+        ) : (
+          <Eye size={18} aria-hidden="true" className="shrink-0" />
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -21,7 +54,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
     <textarea
       data-slot="textarea"
       className={cn(
-        "flex min-h-[88px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary-600 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 aria-[invalid=true]:border-error-500",
+        "flex min-h-[88px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 transition-colors placeholder:text-gray-400 hover:border-gray-300 focus:border-primary-600 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:hover:border-gray-200 aria-[invalid=true]:border-error-500",
         className,
       )}
       {...props}
@@ -29,13 +62,48 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   );
 }
 
-function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+function renderWithRedAsterisk(node: React.ReactNode): React.ReactNode {
+  if (typeof node === "string") {
+    if (node.includes("*")) {
+      const parts = node.split("*");
+      return parts.map((part, index) => (
+        <React.Fragment key={index}>
+          {part}
+          {index < parts.length - 1 && (
+            <span className="text-error-500 font-semibold ml-0.5" aria-hidden="true">
+              *
+            </span>
+          )}
+        </React.Fragment>
+      ));
+    }
+    return node;
+  }
+  if (Array.isArray(node)) {
+    return React.Children.map(node, renderWithRedAsterisk);
+  }
+  return node;
+}
+
+function Label({
+  className,
+  required,
+  children,
+  ...props
+}: React.ComponentProps<typeof LabelPrimitive.Root> & { required?: boolean }) {
   return (
     <LabelPrimitive.Root
       data-slot="label"
       className={cn("mb-1.5 block text-sm font-semibold text-gray-700", className)}
       {...props}
-    />
+    >
+      {renderWithRedAsterisk(children)}
+      {required && (
+        <span className="text-error-500 font-semibold ml-0.5" aria-hidden="true">
+          *
+        </span>
+      )}
+    </LabelPrimitive.Root>
   );
 }
 
@@ -63,4 +131,4 @@ function Select({ className, children, ...props }: React.ComponentProps<"select"
   );
 }
 
-export { Input, Textarea, Label, FieldError, Select };
+export { Input, PasswordInput, Textarea, Label, FieldError, Select };

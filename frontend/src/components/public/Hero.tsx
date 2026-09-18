@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BadgeCheck, Star, Users } from "lucide-react";
+import { BadgeCheck, CalendarCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function Hero({ content, loading }: HeroProps) {
     );
 
   return (
-    <section className="relative flex min-h-[92svh] items-center overflow-hidden bg-secondary-dark" aria-label="Introduction">
+    <section id="home" className="relative flex min-h-[92svh] items-center overflow-hidden bg-secondary-dark" aria-label="Introduction">
       <img
         src="/assets/business/kjac-banner-1.jpg"
         alt=""
@@ -43,7 +43,7 @@ export function Hero({ content, loading }: HeroProps) {
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
       <div
-        className="absolute inset-0 bg-gradient-to-b from-secondary-dark/90 via-secondary-dark/75 to-secondary-dark/90"
+        className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/50"
         aria-hidden="true"
       />
       {/* floating snowflake easter egg */}
@@ -59,7 +59,7 @@ export function Hero({ content, loading }: HeroProps) {
         </svg>
       </span>
       <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-4 py-20 text-center sm:px-6 sm:py-28">
-        <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/30", vis(0))}>
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/30 [filter:drop-shadow(0_2px_6px_rgba(0,20,40,0.9))_drop-shadow(0_12px_32px_rgba(0,20,40,0.6))]", vis(0))}>
           <BadgeCheck size={14} aria-hidden="true" />
           Authorized Aircon Specialist
         </span>
@@ -72,7 +72,7 @@ export function Hero({ content, loading }: HeroProps) {
           <>
             <h1 className={cn("mt-6 flex justify-center", vis(1))}>
               <img
-                src="/assets/business/kjac-brand-name.png"
+                src="/assets/business/kjac-brand-name-sky.png"
                 alt="Klein & Justin Airconditioning"
                 className="w-full max-w-[640px] [filter:drop-shadow(0_2px_6px_rgba(0,20,40,0.9))_drop-shadow(0_12px_32px_rgba(0,20,40,0.6))]"
                 fetchPriority="high"
@@ -93,7 +93,7 @@ export function Hero({ content, loading }: HeroProps) {
             500+ customers served
           </li>
           <li className="inline-flex items-center gap-1.5">
-            <Star size={16} className="text-secondary-accent" aria-hidden="true" />
+            <CalendarCheck size={16} className="text-secondary-accent" aria-hidden="true" />
             Same-day service available
           </li>
         </ul>
@@ -102,7 +102,7 @@ export function Hero({ content, loading }: HeroProps) {
             to="/book"
             className="inline-flex min-h-[52px] cursor-pointer items-center justify-center rounded-lg bg-primary-400 px-8 text-base font-semibold text-white transition hover:bg-primary-500 active:scale-[0.98]"
           >
-            Book Service
+            Book Service Now
           </Link>
           <Link
             to="/track"

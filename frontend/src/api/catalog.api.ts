@@ -6,5 +6,4 @@ export const catalogApi = {
   service: (id: number) =>
     api.get<ServiceDetail>(`/services/${id}`).then((r) => r.data),
   brands: () => api.get<Brand[]>("/brands").then((r) => r.data),
-  brand: (id: number) => api.get<Brand>(`/brands/${id}`).then((r) => r.data),
 };

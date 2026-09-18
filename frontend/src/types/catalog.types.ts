@@ -53,6 +53,7 @@ export interface PsgcItem {
 
 export interface PaymentResponse {
   id: number;
+  uuid: string;
   booking_id: number;
   payment_type: string;
   amount: number;

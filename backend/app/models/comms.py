@@ -35,6 +35,9 @@ NOTIFICATION_TYPES = (
     "refund_reviewed",
     "password_reset",
     "account_locked",
+    "waitlist_joined",
+    "booking_reminder_tomorrow",
+    "payment_reminder",
 )
 
 

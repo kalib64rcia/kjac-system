@@ -105,7 +105,11 @@ export function ConfirmDialog({
           <Button
             variant="outline"
             className="w-full border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-            onClick={onClose}
+            onClick={() => {
+              setReason("");
+              setError(null);
+              onClose();
+            }}
             disabled={busy}
           >
             Cancel

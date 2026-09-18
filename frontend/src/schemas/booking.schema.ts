@@ -11,15 +11,17 @@ export const bookingSchema = z.object({
     .trim()
     .regex(PHONE_RE, "Use 09XXXXXXXXX or +639XXXXXXXXX"),
   region_code: z.string().min(1, "Select a region"),
-  province_code: z.string().min(1, "Select a province"),
-  city_municipality_code: z.string().min(1, "Select a city/municipality"),
-  barangay_code: z.string().min(1, "Select a barangay"),
+  // Childless levels send "" (e.g. NCR → No province); the server only
+  // accepts an empty province when the region truly has none.
+  province_code: z.string().max(20),
+  city_municipality_code: z.string().max(20).min(1, "Select a city/municipality"),
+  barangay_code: z.string().max(20).min(1, "Select a barangay"),
   street_address: z.string().trim().min(5, "Street address needs at least 5 characters").max(500),
   landmark: z.string().trim().min(1, "Landmark is required").max(255),
   service_id: z.number({ error: "Select a service" }).int().positive("Select a service"),
   brand_id: z.number({ error: "Select a brand" }).int().positive("Select a brand"),
   preferred_date: z.string().min(1, "Select a date"),
-  preferred_time: z.string().min(1, "Select a time slot"),
+  preferred_time: z.string().optional().or(z.literal("")),
   problem_description: z.string().max(1000).optional().or(z.literal("")),
   agree_payment: z.literal(true, { error: "Please accept the payment policy" }),
   agree_terms: z.literal(true, { error: "Please accept the terms of service" }),

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2, MailCheck, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Input, Label, PasswordInput } from "@/components/ui/input";
 import {
   loginSchema,
   profileSchema,
@@ -15,6 +15,7 @@ import {
 } from "@/schemas/auth.schema";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "@/stores/toast.store";
+import { SessionExpiredAlert } from "@/components/shared/SessionExpiredAlert";
 
 function CredentialsStep() {
   const signIn = useAuthStore((s) => s.signIn);
@@ -22,6 +23,7 @@ function CredentialsStep() {
   const { register, handleSubmit, formState } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onSubmit",
   });
 
   const submit = handleSubmit(async (values) => {
@@ -60,9 +62,8 @@ function CredentialsStep() {
               Forgot password?
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="login-password"
-            type="password"
             placeholder="••••••••"
             autoComplete="current-password"
             aria-invalid={!!formState.errors.password}
@@ -97,6 +98,7 @@ function ProfileStep() {
   const { register, handleSubmit, formState } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { first_name: "", last_name: "", phone: "" },
+    mode: "onSubmit",
   });
 
   const submit = handleSubmit(async (values) => {
@@ -177,6 +179,7 @@ function CodeStep() {
   const { register, handleSubmit, formState } = useForm<TwoFaFormValues>({
     resolver: zodResolver(twoFaSchema),
     defaultValues: { code: "" },
+    mode: "onSubmit",
   });
 
   const submit = handleSubmit(async (values) => {
@@ -279,18 +282,25 @@ function CodeStep() {
 
 /** Sprint 4: Supabase-direct credentials + backend email-code 2FA. */
 export function LoginPage() {
+  const [params] = useSearchParams();
+  const sessionExpired = params.get("reason") === "session_expired";
   const twoFa = useAuthStore((s) => s.twoFa);
   const needsProfile = useAuthStore((s) => s.needsProfile);
   const step = twoFa ? "code" : needsProfile ? "profile" : "credentials";
   return (
     <>
       <div className="flex flex-col items-center text-center">
-        <img
-          src="/assets/business/kjac-logo.png"
-          alt=""
-          aria-hidden="true"
-          className="h-14 w-14 rounded-full"
-        />
+        <Link
+          to="/"
+          aria-label="Klein & Justin Airconditioning home"
+          className="group inline-flex cursor-pointer rounded-full transition-transform focus-visible:outline-2 focus-visible:outline-primary-600"
+        >
+          <img
+            src="/assets/business/kjac-logo.png"
+            alt="Klein & Justin Airconditioning"
+            className="h-20 w-20 object-contain drop-shadow-sm"
+          />
+        </Link>
         <h1 className="mt-3 text-balance text-xl font-bold text-gray-900">Admin access</h1>
         <p className="mt-1 flex items-center gap-1 text-sm text-gray-600">
           <ShieldCheck size={15} aria-hidden="true" className="text-primary-600" />
@@ -298,6 +308,11 @@ export function LoginPage() {
         </p>
       </div>
       <div className="mt-6">
+        {sessionExpired && (
+          <div className="mb-3">
+            <SessionExpiredAlert />
+          </div>
+        )}
         {step === "code" ? <CodeStep /> : step === "profile" ? <ProfileStep /> : <CredentialsStep />}
       </div>
     </>

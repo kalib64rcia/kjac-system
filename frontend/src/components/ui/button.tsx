@@ -8,21 +8,25 @@ import { cn } from "@/lib/utils";
  * icon sizing that respects explicit size classes) with KJAC DESIGN.md tokens.
  * KJAC extensions: `destructiveOutline` variant; touch-target min-heights
  * (44px default/icon, 52px lg) exceed upstream h-9/h-10 and are intentional.
+ * Disabled/loading buttons freeze: 🚫 cursor, opacity-50, every hover
+ * visual twinned back to resting (disabled:hover:), press scale cancelled
+ * (disabled:active:scale-100). Native `disabled` never fires clicks.
+ * Rule: any new hover class here needs its disabled twin.
  */
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition active:scale-[0.98] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition active:scale-[0.98] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary-400 text-white hover:bg-primary-500",
-        secondary: "bg-secondary-medium text-white hover:bg-secondary-light",
-        destructive: "bg-error-500 text-white hover:bg-error-600",
+        default: "bg-primary-400 text-white hover:bg-primary-500 disabled:hover:bg-primary-400",
+        secondary: "bg-secondary-medium text-white hover:bg-secondary-light disabled:hover:bg-secondary-medium",
+        destructive: "bg-error-500 text-white hover:bg-error-600 disabled:hover:bg-error-500",
         destructiveOutline:
-          "border border-error-500 text-error-600 hover:bg-error-50",
+          "border border-error-500 text-error-600 hover:bg-error-50 disabled:hover:bg-transparent",
         outline:
-          "border border-primary-600 text-primary-600 hover:bg-primary-50",
-        ghost: "text-primary-600 hover:bg-primary-50",
-        link: "text-primary-600 underline-offset-4 hover:underline",
+          "border border-primary-600 text-primary-600 hover:bg-primary-50 disabled:hover:bg-transparent",
+        ghost: "text-primary-600 hover:bg-primary-50 disabled:hover:bg-transparent",
+        link: "text-primary-600 underline-offset-4 hover:underline disabled:hover:no-underline",
       },
       size: {
         default: "min-h-[44px] px-4 text-sm",

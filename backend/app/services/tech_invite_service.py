@@ -3,153 +3,53 @@
 Admin collects the email in person → system emails a single-use link →
 technician completes their own form → pending → admin review → activate.
 No public signup surface; no emailed passwords.
+
+Shared mechanics live in invite_service; only accept_invite stays here
+(technician role + owner/delegate fan-out).
 """
 
-import hashlib
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.errors import AppError
 from app.models.tech_invite import TechnicianInvite
 from app.models.users import User
+from app.services import invite_service as invites
 from app.services.email_service import EmailService
 from app.services.notify_service import notify
-
-INVITE_TTL_DAYS = 7
-
-
-def _hash(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def _invite_link(token: str) -> str:
-    return f"{settings.public_app_url.rstrip('/')}/technician/accept?token={token}"
-
-
-async def _live_invite_for_email(
-    db: AsyncSession, email: str
-) -> TechnicianInvite | None:
-    result = await db.execute(
-        select(TechnicianInvite)
-        .where(
-            func.lower(TechnicianInvite.email) == email.lower(),
-            TechnicianInvite.used_at.is_(None),
-            TechnicianInvite.revoked_at.is_(None),
-            TechnicianInvite.expires_at > datetime.now(UTC),
-        )
-        .order_by(TechnicianInvite.id.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
 
 
 async def send_invite(
     db: AsyncSession, mailer: EmailService, admin: User, email: str
 ) -> TechnicianInvite:
-    email = email.strip().lower()
-    existing = await db.execute(select(User.id).where(func.lower(User.email) == email))
-    if existing.scalar_one_or_none() is not None:
-        raise AppError("BOOKING_003", "An account with this email already exists.", 409)
-    if await _live_invite_for_email(db, email) is not None:
-        raise AppError("BOOKING_003", "A live invite already exists for this email.", 409)
-    token = secrets.token_urlsafe(32)
-    row = TechnicianInvite(
-        email=email,
-        token_hash=_hash(token),
-        expires_at=datetime.now(UTC) + timedelta(days=INVITE_TTL_DAYS),
-        created_by_admin_id=admin.id,
+    return await invites.send_invite(
+        db, TechnicianInvite, mailer.send_technician_invite, "/technician/accept",
+        {"created_by_admin_id": admin.id}, email,
     )
-    db.add(row)
-    await db.commit()
-    await db.refresh(row)
-    mailer.send_technician_invite(email, _invite_link(token))
-    return row
 
 
 async def list_invites(db: AsyncSession) -> list[TechnicianInvite]:
-    result = await db.execute(
-        select(TechnicianInvite).order_by(TechnicianInvite.id.desc()).limit(100)
-    )
-    return list(result.scalars())
+    return await invites.list_invites(db, TechnicianInvite)
 
 
 async def resend_invite(
     db: AsyncSession, mailer: EmailService, invite_id: int
 ) -> TechnicianInvite:
-    row = await db.get(TechnicianInvite, invite_id)
-    if row is None:
-        raise AppError("BOOKING_001", "Invite not found.", 404)
-    if row.used_at is not None:
-        raise AppError("BOOKING_003", "Invite already used.", 409)
-    if row.revoked_at is not None:
-        raise AppError("BOOKING_003", "Invite revoked. Create a new one.", 409)
-    token = secrets.token_urlsafe(32)
-    row.token_hash = _hash(token)
-    row.expires_at = datetime.now(UTC) + timedelta(days=INVITE_TTL_DAYS)
-    await db.commit()
-    await db.refresh(row)
-    mailer.send_technician_invite(row.email, _invite_link(token))
-    return row
+    return await invites.resend_invite(
+        db, TechnicianInvite, mailer.send_technician_invite, "/technician/accept",
+        invite_id,
+    )
 
 
 async def revoke_invite(db: AsyncSession, invite_id: int) -> TechnicianInvite:
-    row = await db.get(TechnicianInvite, invite_id)
-    if row is None:
-        raise AppError("BOOKING_001", "Invite not found.", 404)
-    if row.used_at is not None:
-        raise AppError("BOOKING_003", "Invite already used.", 409)
-    row.revoked_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(row)
-    return row
-
-
-async def _usable_invite(db: AsyncSession, token: str) -> TechnicianInvite | None:
-    """An invite link works until the account is decided — not burned at form
-    submit. used_at means 'mailbox proven' (needed by approval review), while
-    usability here means: found, unrevoked, unexpired."""
-    result = await db.execute(
-        select(TechnicianInvite).where(TechnicianInvite.token_hash == _hash(token))
-    )
-    invite = result.scalar_one_or_none()
-    if invite is None:
-        return None
-    if invite.revoked_at is not None:
-        return None
-    if invite.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
-        return None
-    return invite
+    return await invites.revoke_invite(db, TechnicianInvite, invite_id)
 
 
 async def invite_state(db: AsyncSession, token: str) -> dict:
-    """Resume state for an invite link (powers abandon-resume UX).
-
-    - unknown/expired/revoked token -> {"state": "invalid"}
-    - live token, no row yet -> {"state": "new", "email": ...}
-    - row pending, no login linked -> {"state": "needs_login", "email": ...}
-    - row pending, login linked -> {"state": "waiting_approval", "email": ...}
-    - row decided -> {"state": "decided", "status": ...}
-    Closing the tab mid-flow loses nothing: all progress is server-side.
-    """
-    invite = await _usable_invite(db, token)
-    if invite is None:
-        return {"state": "invalid"}
-    result = await db.execute(
-        select(User).where(func.lower(User.email) == invite.email.lower())
-    )
-    user = result.scalar_one_or_none()
-    if user is None:
-        return {"state": "new", "email": invite.email}
-    if user.status == "pending_approval":
-        return {
-            "state": "needs_login" if user.uuid is None else "waiting_approval",
-            "email": invite.email,
-        }
-    return {"state": "decided", "status": user.status, "email": invite.email}
+    """Resume state for an invite link (powers abandon-resume UX)."""
+    return await invites.invite_state(db, TechnicianInvite, token)
 
 
 async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
@@ -158,7 +58,7 @@ async def accept_invite(db: AsyncSession, token: str, fields: dict) -> User:
     Idempotent for same token + same email while still pending: updates the
     row instead of conflicting, so double-clicks and retries are safe.
     """
-    invite = await _usable_invite(db, token)
+    invite = await invites.usable_invite(db, TechnicianInvite, token)
     if invite is None:
         raise AppError("AUTH_005", "Invite is invalid, expired, or already used.", 400)
     if fields["email"].strip().lower() != invite.email.lower():

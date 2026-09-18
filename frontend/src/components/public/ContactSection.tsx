@@ -1,13 +1,12 @@
 import { Clock, Facebook, Mail, MapPin, Phone } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { LandingContent } from "@/types/content.types";
-import { Blobs } from "./Decor";
 
 /** Contact info (display-only — no backend contact endpoint exists). */
 export function ContactSection({ content }: { content: LandingContent }) {
   const secondary = content.contact_phone_secondary.trim();
   return (
-    <section id="contact" className="relative mx-auto max-w-7xl scroll-mt-24 overflow-hidden px-4 py-14 sm:px-6" aria-label="Contact">
-      <Blobs variant="cool" />
+    <section id="contact" className="relative mx-auto max-w-7xl overflow-hidden px-4 py-14 sm:px-6" aria-label="Contact">
       <h2 className="relative text-center text-2xl font-bold text-gray-900 sm:text-3xl">Visit Us</h2>
       <div className="relative mx-auto mt-8 max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-lg font-bold text-gray-900">Klein &amp; Justin Airconditioning</p>
@@ -18,7 +17,7 @@ export function ContactSection({ content }: { content: LandingContent }) {
           </li>
           <li className="flex items-start gap-2.5">
             <Phone size={18} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
-            <span className="font-technical">
+            <span className="tabular-nums">
               {content.contact_phone}
               {secondary && <span> · {secondary}</span>}
             </span>
@@ -40,14 +39,15 @@ export function ContactSection({ content }: { content: LandingContent }) {
             </a>
           </li>
         </ul>
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(content.contact_address)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-400 px-6 text-sm font-semibold text-white hover:bg-primary-500"
-        >
-          Get Directions
-        </a>
+        <Button asChild className="mt-6 px-6">
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(content.contact_address)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Get Directions
+          </a>
+        </Button>
       </div>
     </section>
   );

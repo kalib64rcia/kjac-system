@@ -22,11 +22,14 @@ function ScrollArea({
   className,
   children,
   viewportId,
+  viewportClassName,
   scrollbarClassName,
   ...props
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
   /** Stable DOM id on the viewport so scroll helpers can target it. */
   viewportId?: string;
+  /** Extra classes on the viewport (e.g. cap height for popover lists). */
+  viewportClassName?: string;
   /** Tint override for the scrollbar groove/bar if ever needed. */
   scrollbarClassName?: string;
 }) {
@@ -41,7 +44,7 @@ function ScrollArea({
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
         id={viewportId}
-        className="size-full rounded-[inherit] outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-600"
+        className={cn("size-full rounded-[inherit] outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-600", viewportClassName)}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

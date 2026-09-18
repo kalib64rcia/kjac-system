@@ -1,0 +1,5 @@
+- generic [ref=e19]:
+  - heading "Drag repro" [level=1] [ref=e20]
+  - button "Open sheet" [ref=e21] [cursor=pointer]
+  - button "Filter by options" [ref=e23] [cursor=pointer]:
+    - generic [ref=e24]: Pick one

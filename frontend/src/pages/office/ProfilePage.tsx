@@ -1,17 +1,11 @@
+import { DetailRow } from "@/components/shared/DetailRow";
 import { useAuthStore } from "@/stores/auth.store";
 import { getInitials } from "@/utils/format";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex min-h-[44px] flex-col justify-center gap-0.5 border-b border-gray-100 py-2 last:border-0 sm:flex-row sm:items-center sm:gap-4">
-      <dt className="shrink-0 text-sm font-medium text-gray-500 sm:w-32">{label}</dt>
-      <dd className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">{value}</dd>
-    </div>
-  );
-}
+
 
 /** View-only office identity. Editing (with owner approval) ships separately. */
 export function ProfilePage() {
@@ -31,7 +25,7 @@ export function ProfilePage() {
     <div>
       <PageHeader
         title="My profile"
-        description="Your office identity. Profile changes need owner approval — editing ships separately."
+        description="Your account details and administrative permissions."
       />
       <div className="flex flex-col gap-6">
         <Card>
@@ -55,9 +49,9 @@ export function ProfilePage() {
           </CardHeader>
           <CardContent>
             <dl>
-              <DetailRow label="First name" value={user?.first_name || "—"} />
-              <DetailRow label="Last name" value={user?.last_name || "—"} />
-              <DetailRow label="Email" value={user?.email || "—"} />
+              <DetailRow label="First name" value={user?.first_name || "None"} />
+              <DetailRow label="Last name" value={user?.last_name || "None"} />
+              <DetailRow label="Email" value={user?.email || "None"} />
               <DetailRow
                 label="Role"
                 value={isOwner ? "Owner" : `Staff${user?.position ? ` · ${user.position}` : ""}`}

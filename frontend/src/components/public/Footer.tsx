@@ -1,6 +1,8 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CircleCheck, Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
-import type { LandingContent } from "@/types/content.types";
+import { Link } from "react-router-dom";
+import { CircleCheckBig, Facebook, Instagram, Mail, MapPin, Phone } from "lucide-react";
+import { useLandingContent } from "@/hooks/usePublic";
+import { useGoSection } from "@/layouts/PublicLayout";
+import { LANDING_DEFAULTS, type LandingContent } from "@/types/content.types";
 
 const TAGLINES = [
   "Provide Air Solutions",
@@ -10,20 +12,10 @@ const TAGLINES = [
 ];
 
 /** Pure-white footer: full-nav quick links, Lucide icons, real legal routes. */
-export function Footer({ content }: { content: LandingContent }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const onSection = (id: string) => {
-    if (location.pathname !== "/") {
-      void navigate("/");
-      window.setTimeout(
-        () => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }),
-        150,
-      );
-    } else {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    }
-  };
+export function Footer({ content: propContent }: { content?: LandingContent } = {}) {
+  const { data } = useLandingContent();
+  const content = propContent ?? data ?? LANDING_DEFAULTS;
+  const onSection = useGoSection();
   return (
     <footer className="border-t border-gray-200 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -38,7 +30,7 @@ export function Footer({ content }: { content: LandingContent }) {
             <ul className="mt-4 flex flex-col gap-1.5">
               {TAGLINES.map((t) => (
                 <li key={t} className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <CircleCheck size={16} className="shrink-0 text-primary-600" aria-hidden="true" />
+                  <CircleCheckBig size={16} className="shrink-0 text-primary-600" aria-hidden="true" />
                   {t}
                 </li>
               ))}
@@ -47,25 +39,25 @@ export function Footer({ content }: { content: LandingContent }) {
           <nav aria-label="Quick links">
             <h3 className="text-sm font-bold uppercase tracking-wide text-gray-900">Quick Links</h3>
             <ul className="mt-3 flex flex-col gap-2 text-sm text-gray-600">
-              <li><Link to="/" className="hover:text-primary-600">Home</Link></li>
+              <li><button type="button" onClick={() => onSection("home")} className="cursor-pointer hover:text-primary-600">Home</button></li>
               <li><button type="button" onClick={() => onSection("about")} className="cursor-pointer hover:text-primary-600">About</button></li>
               <li><button type="button" onClick={() => onSection("services")} className="cursor-pointer hover:text-primary-600">Services</button></li>
               <li><button type="button" onClick={() => onSection("brands")} className="cursor-pointer hover:text-primary-600">Brands</button></li>
-              <li><button type="button" onClick={() => onSection("guides")} className="cursor-pointer hover:text-primary-600">Gallery</button></li>
+              <li><button type="button" onClick={() => onSection("why-us")} className="cursor-pointer hover:text-primary-600">Why Choose Us</button></li>
+              <li><button type="button" onClick={() => onSection("mission-vision")} className="cursor-pointer hover:text-primary-600">Mission &amp; Vision</button></li>
               <li><button type="button" onClick={() => onSection("testimonials")} className="cursor-pointer hover:text-primary-600">Testimonials</button></li>
+              <li><button type="button" onClick={() => onSection("guides")} className="cursor-pointer hover:text-primary-600">Gallery</button></li>
               <li><button type="button" onClick={() => onSection("faqs")} className="cursor-pointer hover:text-primary-600">FAQs</button></li>
               <li><button type="button" onClick={() => onSection("contact")} className="cursor-pointer hover:text-primary-600">Contact</button></li>
-              <li><Link to="/book" className="font-semibold text-primary-600 hover:underline">Book Now</Link></li>
-              <li><Link to="/track" className="hover:text-primary-600">Track Status</Link></li>
             </ul>
           </nav>
           <nav aria-label="Services">
             <h3 className="text-sm font-bold uppercase tracking-wide text-gray-900">Services</h3>
             <ul className="mt-3 flex flex-col gap-2 text-sm text-gray-600">
-              <li><Link to="/book" className="hover:text-primary-600">Installation</Link></li>
+              <li><Link to="/book" className="hover:text-primary-600">General Cleaning</Link></li>
               <li><Link to="/book" className="hover:text-primary-600">Repair</Link></li>
-              <li><Link to="/book" className="hover:text-primary-600">Maintenance</Link></li>
-              <li><Link to="/book" className="hover:text-primary-600">Cleaning</Link></li>
+              <li><Link to="/book" className="hover:text-primary-600">Installation</Link></li>
+              <li><Link to="/book" className="hover:text-primary-600">Preventive Maintenance</Link></li>
             </ul>
           </nav>
           <div>
@@ -73,7 +65,7 @@ export function Footer({ content }: { content: LandingContent }) {
             <ul className="mt-3 flex flex-col gap-2.5 text-sm text-gray-600">
               <li className="flex items-center gap-2">
                 <Phone size={16} className="shrink-0 text-primary-600" aria-hidden="true" />
-                <span className="font-technical">{content.contact_phone}</span>
+                <span className="tabular-nums">{content.contact_phone}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail size={16} className="shrink-0 text-primary-600" aria-hidden="true" />

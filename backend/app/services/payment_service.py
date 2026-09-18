@@ -7,7 +7,8 @@ with a fresh 3h expiry (CONTRACTS.md C6).
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -68,6 +69,25 @@ async def upload_payment(
     return payment
 
 
+async def _verified_holder_ref(
+    db: AsyncSession, ref: str, payment_id: int
+) -> str | None:
+    """Reference id of the booking whose verified payment already spent this
+    GCash number (None when unspent). Lets a 409 name where to look."""
+    spent = await db.execute(
+        select(Payment.booking_id).where(
+            Payment.gcash_reference_number == ref,
+            Payment.status == "verified",
+            Payment.id != payment_id,
+        )
+    )
+    holder_id = spent.scalar_one_or_none()
+    if holder_id is None:
+        return None
+    holder = await get_booking_or_404(db, holder_id)
+    return holder.reference_id
+
+
 async def verify_payment(
     db: AsyncSession, payment_id: int, admin_id: int, approve: bool,
     rejection_reason: str | None,
@@ -81,10 +101,51 @@ async def verify_payment(
     booking = await get_booking_or_404(db, payment.booking_id)
 
     now = datetime.now(UTC)
+    ref = (payment.gcash_reference_number or "").strip() if approve else ""
+    if ref:
+        holder_ref = await _verified_holder_ref(db, ref, payment_id)
+        if holder_ref is not None:
+            raise AppError(
+                "PAYMENT_002",
+                f"This GCash reference ID was already used to verify {holder_ref}.",
+                409,
+            )
     if approve:
-        payment.status = "verified"
-        payment.verified_by_user_id = admin_id
-        payment.verified_at = now
+        values = {
+            "status": "verified",
+            "verified_by_user_id": admin_id,
+            "verified_at": now,
+        }
+    else:
+        if not (rejection_reason or "").strip():
+            raise AppError("PAYMENT_002", "Rejection reason is required.", 400)
+        values = {
+            "status": "rejected",
+            "rejection_reason": rejection_reason,
+        }
+    # Atomic claim: concurrent reviewers serialize here; the loser touches
+    # zero rows and gets a clean 409 before any notification goes out.
+    # The duplicate-receipt rule is re-checked by the database itself, so a
+    # race between the look above and this write still answers 409, never 500.
+    try:
+        claimed = await db.execute(
+            update(Payment)
+            .where(Payment.id == payment_id, Payment.status == "pending")
+            .values(**values)
+        )
+    except IntegrityError:
+        holder_ref = await _verified_holder_ref(db, ref, payment_id) if ref else None
+        raise AppError(
+            "PAYMENT_002",
+            f"This GCash reference ID was already used to verify {holder_ref}."
+            if holder_ref
+            else "This GCash reference ID was already used to verify another payment.",
+            409,
+        ) from None
+    if claimed.rowcount == 0:
+        raise AppError("PAYMENT_002", "Payment already reviewed.", 409)
+
+    if approve:
         if booking.status == "pending":
             booking.status = "confirmed"
         await _notify_customer(
@@ -92,10 +153,6 @@ async def verify_payment(
             f"{booking.reference_id} is confirmed.", db,
         )
     else:
-        if not (rejection_reason or "").strip():
-            raise AppError("PAYMENT_002", "Rejection reason is required.", 400)
-        payment.status = "rejected"
-        payment.rejection_reason = rejection_reason
         booking.status = "submitted"  # C6: back to submitted + fresh 3h
         booking.expires_at = now + timedelta(hours=3)
         await _notify_customer(

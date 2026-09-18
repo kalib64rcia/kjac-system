@@ -25,3 +25,28 @@ def rate_key(request: Request) -> str:
 
 
 limiter = Limiter(key_func=rate_key)
+
+
+
+def conditional_limit(limit_string: str):
+    """Decorator that conditionally applies rate limiting based on config.
+    
+    If ENDPOINT_RATE_LIMIT_ENABLED is False, this returns a no-op decorator.
+    Otherwise, applies the slowapi limiter with the given limit string.
+    
+    Usage:
+        @conditional_limit("10/minute")
+        async def my_endpoint(...):
+            ...
+    """
+    from app.core.config import settings
+    
+    def decorator(func):
+        if settings.endpoint_rate_limit_enabled:
+            # Apply the rate limiter
+            return limiter.limit(limit_string)(func)
+        else:
+            # Return function unchanged (no-op)
+            return func
+    
+    return decorator

@@ -1,0 +1,143 @@
+- generic [ref=f1e4]:
+  - generic [ref=f1e5]:
+    - heading "Bookings" [level=1] [ref=f1e6]
+    - paragraph [ref=f1e7]: Dispatch board — payment, technician, schedule.
+  - generic [ref=f1e8]:
+    - generic [ref=f1e12]:
+      - paragraph [ref=f1e13]: Needs payment
+      - paragraph [ref=f1e14]: "1"
+      - paragraph [ref=f1e15]: Submitted, no receipt yet
+    - generic [ref=f1e23]:
+      - paragraph [ref=f1e24]: Needs technician
+      - paragraph [ref=f1e25]: "1"
+      - paragraph [ref=f1e26]: Confirmed work, no one assigned
+    - generic [ref=f1e33]:
+      - paragraph [ref=f1e34]: Scheduled today
+      - paragraph [ref=f1e35]: "1"
+      - paragraph [ref=f1e36]: Manila time
+    - generic [ref=f1e44]:
+      - paragraph [ref=f1e45]: Ongoing now
+      - paragraph [ref=f1e46]: "1"
+      - paragraph [ref=f1e47]: Technician on the job
+  - generic [ref=f1e51]:
+    - textbox "Search bookings" [ref=f1e53]:
+      - /placeholder: Search reference, name, email…
+    - button "Filter by statuses" [ref=f1e54] [cursor=pointer]:
+      - generic "All statuses (4)" [ref=f1e55]
+    - button "Filter by date" [ref=f1e57] [cursor=pointer]:
+      - generic [ref=f1e58]: All dates
+    - button "Filter by brands" [ref=f1e59] [cursor=pointer]:
+      - generic "All brands" [ref=f1e60]
+    - button "Filter by services" [ref=f1e61] [cursor=pointer]:
+      - generic "All services" [ref=f1e62]
+  - status [ref=f1e64]: Showing 4 of 4 bookings
+  - generic [ref=f1e65]:
+    - table [ref=f1e67]:
+      - rowgroup [ref=f1e68]:
+        - row [ref=f1e69]:
+          - columnheader [ref=f1e70]:
+            - button "Sort by Reference" [ref=f1e71] [cursor=pointer]: Reference
+          - columnheader [ref=f1e74]:
+            - button "Sort by Customer" [ref=f1e75] [cursor=pointer]: Customer
+          - columnheader "Service" [ref=f1e79]
+          - columnheader [ref=f1e80]:
+            - button "Sort by Schedule" [ref=f1e81] [cursor=pointer]: Schedule
+          - columnheader "Technician" [ref=f1e85]
+          - columnheader "Status" [ref=f1e86]
+          - columnheader "Actions" [ref=f1e87]
+      - rowgroup [ref=f1e88]:
+        - row [ref=f1e89]:
+          - cell "KJAC-2026-A1B2C3" [ref=f1e90]
+          - cell [ref=f1e92]:
+            - generic [ref=f1e93]:
+              - paragraph [ref=f1e94]: Ana Reyes
+              - paragraph [ref=f1e95]: "09170001111"
+              - paragraph [ref=f1e96]: ana@example.com
+          - cell [ref=f1e97]:
+            - generic [ref=f1e98]:
+              - paragraph [ref=f1e99]: General Cleaning
+              - paragraph [ref=f1e100]: Daikin
+          - cell [ref=f1e101]:
+            - generic [ref=f1e102]:
+              - paragraph [ref=f1e103]: September 18, 2026
+              - paragraph [ref=f1e104]: 9:00 AM – 10:30 AM
+          - cell [ref=f1e105]:
+            - paragraph [ref=f1e106]: Unassigned
+          - cell "Submitted" [ref=f1e107]
+          - cell [ref=f1e109]:
+            - button "View details for KJAC-2026-A1B2C3" [ref=f1e111] [cursor=pointer]
+        - row [ref=f1e112]:
+          - cell "KJAC-2026-D4E5F6" [ref=f1e113]
+          - cell [ref=f1e115]:
+            - generic [ref=f1e116]:
+              - paragraph [ref=f1e117]: Ben Cruz
+              - paragraph [ref=f1e118]: "09170002222"
+              - paragraph [ref=f1e119]: ben@example.com
+          - cell [ref=f1e120]:
+            - generic [ref=f1e121]:
+              - paragraph [ref=f1e122]: General Cleaning
+              - paragraph [ref=f1e123]: Samsung
+          - cell [ref=f1e124]:
+            - generic [ref=f1e125]:
+              - paragraph [ref=f1e126]: September 19, 2026
+              - paragraph [ref=f1e127]: 8:00 AM – 9:30 AM
+          - cell [ref=f1e128]:
+            - paragraph [ref=f1e129]: Unassigned
+          - cell "Pending review" [ref=f1e130]
+          - cell [ref=f1e132]:
+            - generic [ref=f1e133]:
+              - button "View details for KJAC-2026-D4E5F6" [ref=f1e134] [cursor=pointer]
+              - button "Assign technician to KJAC-2026-D4E5F6" [ref=f1e135] [cursor=pointer]
+        - row [ref=f1e136]:
+          - cell "KJAC-2026-G7H8I9" [ref=f1e137]
+          - cell [ref=f1e139]:
+            - generic [ref=f1e140]:
+              - paragraph [ref=f1e141]: Cora Diaz
+              - paragraph [ref=f1e142]: "09170003333"
+              - paragraph [ref=f1e143]: cora@example.com
+          - cell [ref=f1e144]:
+            - generic [ref=f1e145]:
+              - paragraph [ref=f1e146]: Repair
+              - paragraph [ref=f1e147]: Daikin
+          - cell [ref=f1e148]:
+            - generic [ref=f1e149]:
+              - paragraph [ref=f1e150]: September 18, 2026
+              - paragraph [ref=f1e151]: 2:00 PM – 4:00 PM
+          - cell [ref=f1e152]:
+            - paragraph [ref=f1e153]: Marco Santos
+          - cell "Confirmed" [ref=f1e154]
+          - cell [ref=f1e156]:
+            - button "View details for KJAC-2026-G7H8I9" [ref=f1e158] [cursor=pointer]
+        - row [ref=f1e159]:
+          - cell "KJAC-2026-J1K2L3" [ref=f1e160]
+          - cell [ref=f1e162]:
+            - generic [ref=f1e163]:
+              - paragraph [ref=f1e164]: Dan Lim
+              - paragraph [ref=f1e165]: "09170004444"
+              - paragraph [ref=f1e166]: dan@example.com
+          - cell [ref=f1e167]:
+            - generic [ref=f1e168]:
+              - paragraph [ref=f1e169]: General Cleaning
+              - paragraph [ref=f1e170]: LG
+          - cell [ref=f1e171]:
+            - generic [ref=f1e172]:
+              - paragraph [ref=f1e173]: September 15, 2026
+              - paragraph [ref=f1e174]: 10:00 AM – 11:30 AM
+          - cell [ref=f1e175]:
+            - paragraph [ref=f1e176]: Jose Ramos
+          - cell "In progress" [ref=f1e177]
+          - cell [ref=f1e179]:
+            - button "View details for KJAC-2026-J1K2L3" [ref=f1e181] [cursor=pointer]
+    - generic [ref=f1e182]:
+      - generic [ref=f1e183]:
+        - text: Rows
+        - combobox "Rows per page" [ref=f1e185] [cursor=pointer]:
+          - option "10"
+          - option "20"
+          - option "50" [selected]
+          - option "100"
+      - generic [ref=f1e186]:
+        - paragraph [ref=f1e187]: Page 1 of 1
+        - generic [ref=f1e188]:
+          - button "Previous page" [disabled] [ref=f1e189]: Prev
+          - button "Next page" [disabled] [ref=f1e190]: Next

@@ -11,9 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 function WideShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-gray-50">
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex min-h-full items-start justify-center px-4 py-10 sm:items-center">
-          <div className="w-full max-w-3xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        viewportClassName="[&>div]:!flex [&>div]:!min-h-full [&>div]:!flex-col"
+      >
+        <div className="flex min-h-full flex-1 items-start justify-center px-4 py-10 sm:items-center">
+          <div className="my-auto w-full max-w-3xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="flex flex-col items-center text-center">
               <img
                 src="/assets/business/kjac-logo.png"

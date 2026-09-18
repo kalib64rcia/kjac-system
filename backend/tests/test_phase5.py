@@ -44,6 +44,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 TRUNCATE_TABLES = (
     "technician_invites, reschedule_requests, booking_inventory_usage,"
     " inventory_movements, messages, message_threads, notifications, ratings,"
+    " window_closures, booking_crew_members,"
     " refunds, payments, booking_status_history, bookings,"
     " payroll_records, commission_rules, employee_info, audit_logs,"
     " user_sessions, admin_two_fa_codes, inventory_items, service_images,"
@@ -91,6 +92,7 @@ async def pg5(
     tmp_path, monkeypatch, migrated_db
 ) -> AsyncIterator[tuple[AsyncClient, dict, AsyncSession]]:
     monkeypatch.setattr(settings, "storage_dir", str(tmp_path / "storage"))
+    monkeypatch.setattr(settings, "storage_backend", "local")
     try:
         limiter._storage.reset()  # type: ignore[attr-defined]
     except (AttributeError, NotImplementedError):
@@ -354,7 +356,21 @@ async def test_resend_and_revoke(pg5: tuple[AsyncClient, dict, AsyncSession]) ->
 
 
 async def test_sync_and_profile_gate(pg5: tuple[AsyncClient, dict, AsyncSession]) -> None:
-    client, subject, _session = pg5
+    import uuid
+
+    from app.models.users import User
+
+    client, subject, session = pg5
+    # One active tech: capacity guard needs a real seat to sell.
+    session.add(
+        User(
+            uuid=uuid.uuid4(), first_name="Cap", last_name="Tech",
+            email="cap-tech@example.com", phone="09170001111",
+            role="technician", status="active",
+            email_verified_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
     subject["uuid"], subject["email"] = str(NEW_UUID), "newbie@example.com"
 
     first = await client.post(

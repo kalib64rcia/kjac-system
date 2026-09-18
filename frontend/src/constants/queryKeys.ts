@@ -11,11 +11,13 @@ export const queryKeys = {
   psgc: {
     regions: ["psgc", "regions"] as const,
     provinces: (region: string) => ["psgc", "provinces", region] as const,
-    cities: (province: string) => ["psgc", "cities", province] as const,
+    cities: (province: string, region = "") => ["psgc", "cities", province, region] as const,
     barangays: (city: string) => ["psgc", "barangays", city] as const,
   },
   booking: {
     track: (ref: string, email: string) => ["booking", "track", ref, email] as const,
+    availability: (from: string, to: string) =>
+      ["booking", "availability", from, to] as const,
   },
   content: {
     landing: ["content", "landing"] as const,

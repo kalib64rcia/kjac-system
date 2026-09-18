@@ -33,7 +33,7 @@ export const employeeAcceptSchema = z.object({
     { message: "Must be 18 or older" },
   ),
   region_code: z.string().min(1, "Select a region"),
-  province_code: z.string().min(1, "Select a province"),
+  province_code: z.string().max(20),
   city_municipality_code: z.string().min(1, "Select a city/municipality"),
   barangay_code: z.string().min(1, "Select a barangay"),
   privacy_consent: z.literal(true, { error: "Privacy consent is required" }),
@@ -65,6 +65,7 @@ export function EmployeeAcceptForm({
       city_municipality_code: "", barangay_code: "",
       privacy_consent: undefined as unknown as true,
     },
+    mode: "onSubmit",
   });
   const region = watch("region_code") || null;
   const province = watch("province_code") || null;

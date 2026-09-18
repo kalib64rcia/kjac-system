@@ -8,7 +8,7 @@ const GUIDES = [
 
 export function GuidesGrid() {
   return (
-    <section id="guides" className="mx-auto max-w-4xl scroll-mt-24 px-4 py-14 sm:px-6" aria-label="Aircon guides">
+    <section id="guides" className="mx-auto max-w-4xl px-4 py-14 sm:px-6" aria-label="Aircon guides">
       <h2 className="text-center text-2xl font-bold text-gray-900 sm:text-3xl">
         Aircon Buying Guides
       </h2>

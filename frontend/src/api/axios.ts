@@ -58,9 +58,19 @@ function toApiError(error: AxiosError): ApiError {
     );
   }
   if (!error.response) {
+    // No reply at all: either this device is offline, or the server never
+    // answered (down, restarting — or it crashed and the browser hid the
+    // error reply). navigator.onLine splits the two honestly.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return new ApiError(
+        "NETWORK_OFFLINE",
+        "You appear to be offline. Check your internet and try again.",
+        status,
+      );
+    }
     return new ApiError(
       "NETWORK_ERROR",
-      "Cannot reach the server. Check your internet and try again.",
+      "The server didn't respond. It may be down or restarting. Try again in a moment.",
       status,
     );
   }
@@ -73,5 +83,25 @@ function toApiError(error: AxiosError): ApiError {
 
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => Promise.reject(toApiError(error)),
+  (error: AxiosError) => {
+    // Auto-logout on 401 (session/auth expired)
+    if (error.response?.status === 401) {
+      // Dynamic import: axios module is ESM (no require in Vite).
+      void import("@/stores/auth.store").then(({ useAuthStore }) => {
+        useAuthStore.getState().signOut().catch(() => {
+          /* ignore logout errors */
+        });
+      });
+
+      // Redirect to the office login with session expired flag
+      if (typeof window !== "undefined") {
+        const currentUrl = window.location.pathname;
+        // Only redirect if not already on an auth page
+        if (!currentUrl.includes("/admin/login")) {
+          window.location.href = "/admin/login?reason=session_expired";
+        }
+      }
+    }
+    return Promise.reject(toApiError(error));
+  },
 );

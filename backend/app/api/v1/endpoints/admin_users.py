@@ -20,13 +20,15 @@ router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 @router.get("", response_model=AdminUserListResponse)
 @limiter.limit("500/minute")
 async def search_users(
-    request: Request, db: DbDep, owner: OwnerTwoFaUser,
+    request: Request, db: DbDep, admin: AdminTwoFaUser,
     role: str | None = Query(default=None, max_length=20),
     user_status: str | None = Query(default=None, max_length=20, alias="status"),
     search: str | None = Query(default=None, max_length=100),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> AdminUserListResponse:
+    # Office-wide read (owner + staff): powers Team + Customers boards.
+    # Writes (status/role/approval) stay owner-gated below.
     total, rows = await users.list_users(db, role, user_status, search, page, limit)
     return AdminUserListResponse(
         total=total, items=[AdminUserResponse.model_validate(r) for r in rows]
