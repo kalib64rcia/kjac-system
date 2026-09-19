@@ -1,11 +1,9 @@
 import { Navigate, useLocation, Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Copy } from "lucide-react";
+import { CheckCircle2, Copy, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/stores/toast.store";
-import { useCountdown } from "@/hooks/useCountdown";
-import { formatPeso } from "@/utils/format";
 
 interface SuccessState {
   reference_id: string;
@@ -14,13 +12,12 @@ interface SuccessState {
   email: string;
 }
 
-/** Post-booking success: ref once, countdown, next steps. */
+/** Post-booking success: ref once, then wait for a proposed schedule. No payment yet. */
 export function BookingSuccessPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as SuccessState | null;
   const [copied, setCopied] = useState(false);
-  const { label } = useCountdown(state?.expires_at ?? null);
 
   if (!state?.reference_id) {
     return <Navigate to="/book" replace />;
@@ -58,19 +55,16 @@ export function BookingSuccessPage() {
               </button>
             </div>
             {copied && <p className="mt-1 text-xs text-success-600">Copied!</p>}
-            <p className="mt-3 text-sm font-semibold text-warning-700">
-              ⚠ Save this ID — it is shown only once. You need it plus your email to track.
-            </p>
-            <p className="mt-2 text-sm text-gray-700">
-              ⏰ Upload payment within <span className="font-technical font-semibold tabular-nums">{label}</span>
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-warning-700">
+              <TriangleAlert size={16} aria-hidden="true" />
+              <span>Save this ID. It is shown only once. You need it plus your email to track.</span>
             </p>
             <div className="mt-4 w-full rounded-lg bg-gray-50 p-4 text-left text-sm text-gray-700">
               <p className="font-semibold text-gray-900">Next steps</p>
               <ol className="mt-1 list-decimal pl-5">
-                <li>✓ Booking created</li>
-                <li>Pay <span className="font-technical font-semibold">{formatPeso(state.down_payment)}</span> down payment via GCash</li>
-                <li>Upload your GCash receipt below</li>
-                <li>Wait for admin verification</li>
+                <li>Booking received. Our team is checking availability.</li>
+                <li>We will send a proposed schedule to your email.</li>
+                <li>Open Track and accept the schedule to pay.</li>
               </ol>
               <p className="mt-2">Confirmation details were sent to {state.email}.</p>
             </div>
@@ -80,7 +74,7 @@ export function BookingSuccessPage() {
                 onClick={() => navigate('/track', { state: { reference_id: state.reference_id, email: state.email } })}
                 className="inline-flex min-h-[52px] flex-1 items-center justify-center rounded-lg bg-primary-400 px-6 text-base font-semibold text-white hover:bg-primary-500"
               >
-                Upload Payment Now
+                Track Booking
               </button>
               <Link
                 to="/"

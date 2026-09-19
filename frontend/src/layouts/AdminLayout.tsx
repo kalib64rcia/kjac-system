@@ -73,7 +73,6 @@ function navFor(base: "/owner" | "/staff", isOwner: boolean): NavGroup[] {
         { label: "Refunds", to: `${base}/refunds`, icon: BanknoteArrowDown },
         { label: "Inventory", to: `${base}/inventory`, icon: Package },
         { label: "Customers", to: `${base}/customers`, icon: Users },
-        { label: "Notifications", to: `${base}/notifications`, icon: Bell },
       ],
     },
     {
@@ -157,14 +156,14 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
   return (
       <div
       className={cn(
-        "flex h-full flex-col overflow-hidden bg-white drop-shadow-md transition-[width] duration-200 ease-out motion-reduce:transition-none",
+        "flex h-full flex-col overflow-hidden bg-[#082F56] drop-shadow-md transition-[width] duration-200 ease-out motion-reduce:transition-none",
         // Drawer context: the Sheet owns w-86%/360 — fill it exactly once.
         mobile ? "w-full" : collapsed ? "w-[65px]" : "w-[280px]",
       )}
       >
         <div
           className={cn(
-            "flex h-20 shrink-0 items-center border-b border-gray-200 shadow-sm transition-[padding,gap] duration-200 ease-out motion-reduce:transition-none",
+            "flex h-20 shrink-0 items-center border-b border-gray-200 shadow-sm transition-[padding,gap] duration-200 ease-out motion-reduce:transition-none bg-white",
             rail ? "justify-center gap-0 px-3" : "justify-start gap-2 px-3",
           )}
         >
@@ -214,7 +213,7 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
         {groups.map((group) => (
           <div key={group.section ?? "top"} className="mb-2">
             {group.section && !collapsed && (
-              <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-white opacity-75">
                 {group.section}
               </p>
             )}
@@ -232,8 +231,8 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
                     "flex min-h-[44px] cursor-pointer items-center overflow-hidden rounded-lg px-[11px] text-sm font-semibold transition-[gap,padding] duration-200 ease-out motion-reduce:transition-none",
                     rail ? "gap-0" : "gap-2.5",
                     active
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-primary-600",
+                      ? "bg-[#0A3D6E] text-white"
+                      : "text-white hover:bg-[#0A3D6E]",
                   )}
                 >
                   <Icon size={18} aria-hidden="true" className="shrink-0" />
@@ -254,7 +253,7 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
       </ScrollArea>
       <div
         className={cn(
-          "border-t border-gray-200 transition-[padding] duration-200 ease-out motion-reduce:transition-none",
+          "border-t border-[#0A3D6E] transition-[padding] duration-200 ease-out motion-reduce:transition-none",
           // Rail: same 12/13 border compensation as the nav above.
           rail ? "py-3 pl-3 pr-[13px]" : "p-3",
         )}
@@ -266,7 +265,7 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
               onClick={() => navigate(`${base}/profile`)}
               title="My profile"
               aria-label="Open my profile"
-              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-gray-50"
+              className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-[#0A3D6E]"
             >
               <Avatar className="size-8">
                 <AvatarFallback className="text-xs">
@@ -281,7 +280,7 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
               type="button"
               onClick={() => navigate(`${base}/profile`)}
               aria-label="Open my profile"
-              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-lg px-1 py-2 text-left transition-colors hover:bg-gray-50"
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-lg px-1 py-2 text-left transition-colors hover:bg-[#0A3D6E]"
             >
               <Avatar className="size-8">
                 <AvatarFallback>
@@ -289,8 +288,8 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
                 </AvatarFallback>
               </Avatar>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-gray-900">{name}</span>
-                <span className="block truncate text-xs text-gray-500">
+                <span className="block truncate text-sm font-semibold text-white">{name}</span>
+                <span className="block truncate text-xs text-white opacity-75">
                   {isOwner ? "Owner" : user?.position ? `Staff · ${user.position}` : "Staff"}
                 </span>
               </span>
@@ -300,7 +299,7 @@ function Sidebar({ base, mobile, onCloseDrawer }: {
               title="Log out"
               aria-label="Log out"
               onClick={() => setConfirmOut(true)}
-              className="flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100"
+              className="flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-md text-white transition-colors hover:bg-[#0A3D6E]"
             >
               <LogOut size={18} aria-hidden="true" />
             </button>

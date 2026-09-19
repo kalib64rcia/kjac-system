@@ -4,3 +4,41 @@ python -m uvicorn app.main:app --reload --port 8000
 
 cd frontend
 npm run dev
+
+Daily start / stop
+cd C:\KJAC-SYSTEM\REACT-NEXT\kjac-system\backend
+
+docker compose up -d        # start Postgres in background
+docker compose ps           # confirm: Up (healthy)
+
+docker compose stop         # stop container, KEEP data
+docker compose down         # stop + remove container, KEEP data (volume persists)
+Useful commands
+docker compose logs -f db   # live Postgres logs (Ctrl+C to exit)
+docker compose exec db pg_isready -U postgres -d kjac_db   # readiness check
+
+# Open a SQL shell inside the container:
+docker compose exec db psql -U postgres -d kjac_db
+# e.g.  SELECT count(*) FROM users;   then  \q  to quit
+
+# Run migrations after pulling new code:
+alembic upgrade head
+alembic current            # show applied revision
+Data persistence
+- Your data lives in the named volume backend_kjac-pgdata — it survives stop, down, reboots, and docker compose up again.
+- It is only deleted if you explicitly run docker compose down -v (the -v drops the volume → empty DB → you'd re-run alembic upgrade head).
+Fresh reset (start over from seeds)
+docker compose down -v     # delete container AND data
+docker compose up -d
+alembic upgrade head       # re-creates schema + seed data
+Troubleshooting
+Symptom
+failed to connect to the docker API / pipe/dockerDesktopLinuxEngine
+port is already allocated on up
+Container Up but never healthy
+Backend TimeoutError again
+Typical dev session order
+1. docker compose up -d (DB)
+2. uvicorn app.main:app --reload --port 8000 (backend — expect database reachable in logs)
+3. npm run dev in frontend/ (web on :5173)
+Nothing to commit for daily use — compose.yaml is already in place and your data stays in the Docker volume between sessions.

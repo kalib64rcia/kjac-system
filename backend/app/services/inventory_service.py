@@ -17,6 +17,7 @@ from app.models.inventory import InventoryItem, InventoryMovement
 async def list_items(
     db: AsyncSession, search: str | None, item_type: str | None,
     low_stock: bool, page: int, limit: int,
+    sort_by: str = "newest", sort_dir: str = "desc",
 ) -> tuple[int, list[InventoryItem]]:
     query = select(InventoryItem).where(InventoryItem.deleted_at.is_(None))
     if search:
@@ -26,8 +27,14 @@ async def list_items(
     if low_stock:
         query = query.where(InventoryItem.quantity <= InventoryItem.minimum_stock_level)
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    column = {
+        "name": InventoryItem.name,
+        "quantity": InventoryItem.quantity,
+        "newest": InventoryItem.id,
+    }.get(sort_by, InventoryItem.id)
+    ordering = column.desc() if sort_dir == "desc" else column.asc()
     rows = (
-        await db.execute(query.order_by(InventoryItem.id).offset((page - 1) * limit).limit(limit))
+        await db.execute(query.order_by(ordering).offset((page - 1) * limit).limit(limit))
     ).scalars()
     return total, list(rows)
 

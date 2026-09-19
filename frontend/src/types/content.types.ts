@@ -11,6 +11,11 @@ export interface LandingContent {
   contact_email: string;
   contact_address: string;
   business_hours: string;
+  business_open_days: boolean[];
+  business_open_time: string;
+  business_close_time: string;
+  gcash_account_number: string;
+  gcash_account_name: string;
   facebook_url: string;
   announcement_text: string;
   announcement_enabled: boolean;
@@ -34,6 +39,11 @@ export const LANDING_DEFAULTS: LandingContent = {
   contact_email: "abadeciomar@yahoo.com",
   contact_address: "060 Sitio Narra, Brgy. Labuin, Sta. Cruz, Laguna",
   business_hours: "Monday–Saturday, 8:00 AM – 5:00 PM",
+  business_open_days: [true, true, true, true, true, true, false],
+  business_open_time: "08:00",
+  business_close_time: "17:00",
+  gcash_account_number: "",
+  gcash_account_name: "",
   facebook_url: "https://facebook.com/abadeciomar",
   announcement_text: "",
   announcement_enabled: false,

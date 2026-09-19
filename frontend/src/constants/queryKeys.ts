@@ -16,8 +16,6 @@ export const queryKeys = {
   },
   booking: {
     track: (ref: string, email: string) => ["booking", "track", ref, email] as const,
-    availability: (from: string, to: string) =>
-      ["booking", "availability", from, to] as const,
   },
   content: {
     landing: ["content", "landing"] as const,

@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Download } from "lucide-react";
+﻿import { useState } from "react";
+import { ClipboardClock, Download, LayoutGrid, TriangleAlert, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +12,11 @@ import { Label } from "@/components/ui/input";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { FilterPopover } from "@/components/shared/FilterPopover";
 import { ApiError } from "@/api/errors";
-import { reportsApi } from "@/api/office-ext.api";
+import { reportsApi, type BookingsReport, type RevenueReport } from "@/api/office-ext.api";
 import { useBookingsReport, useRevenueReport } from "@/hooks/useOffice";
 import { toast } from "@/stores/toast.store";
 import { manilaToday } from "@/utils/format";
+import { formatPeso } from "@/utils/format";
 
 const STATUS_OPTIONS = [
   { id: "submitted", name: "Submitted" },
@@ -31,6 +32,24 @@ function monthAgo(): string {
   const d = new Date();
   d.setDate(d.getDate() - 30);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Canonical stat slots: range total · attention · live mix · money. */
+function ReportStats({ bookings, revenue, dateFrom, dateTo }: {
+  bookings: BookingsReport;
+  revenue: RevenueReport;
+  dateFrom: string;
+  dateTo: string;
+}) {
+  const troubled = bookings.items.filter((b) => b.status === "cancelled" || b.status === "expired").length;
+  return (
+    <StatsGrid>
+      <StatCard title="Bookings" value={String(bookings.total)} icon={ClipboardClock} hint={`${dateFrom} → ${dateTo}`} tint="sky" />
+      <StatCard title="Cancelled + expired" value={String(troubled)} icon={TriangleAlert} hint="Needs follow-up" tint="warning" />
+      <StatCard title="Services earning" value={String(revenue.by_service.length)} icon={LayoutGrid} hint="With verified payments" tint="teal" />
+      <StatCard title="Verified revenue" value={formatPeso(revenue.grand_total)} icon={Wallet} hint="Verified payments only" tint="success" />
+    </StatsGrid>
+  );
 }
 
 /** Reports board: shared by owner + staff routes. JSON tables + CSV export (PDF later). */
@@ -127,11 +146,7 @@ export function ReportsPage() {
           )}
           {bookings.data && revenue.data && (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <StatCard title="Bookings" value={String(bookings.data.total)} icon={Download} hint={`${run.date_from} → ${run.date_to}`} tint="sky" />
-                <StatCard title="Verified revenue" value={`₱${revenue.data.grand_total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`} icon={Download} hint="Verified payments only" tint="success" />
-                <StatCard title="Services earning" value={String(revenue.data.by_service.length)} icon={Download} hint="With verified payments" tint="teal" />
-              </div>
+              <ReportStats bookings={bookings.data} revenue={revenue.data} dateFrom={run.date_from} dateTo={run.date_to} />
               <Card>
                 <CardHeader><CardTitle>Revenue by day</CardTitle></CardHeader>
                 <CardContent>
@@ -144,7 +159,7 @@ export function ReportsPage() {
                           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
                           <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} minTickGap={24} />
                           <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={64} tickFormatter={(v: number) => `₱${Number(v).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`} />
-                          <Tooltip formatter={(v) => [`₱${Number(v).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, "Revenue"]} labelClassName="text-gray-900" />
+                          <Tooltip formatter={(v) => [formatPeso(Number(v)), "Revenue"]} labelClassName="text-gray-900" />
                           <Bar dataKey="total" fill="#38b6ff" radius={[6, 6, 0, 0]} maxBarSize={36} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -163,7 +178,7 @@ export function ReportsPage() {
                         <li key={row.service} className="flex items-center justify-between gap-2 py-2 text-sm">
                           <span className="min-w-0 truncate font-medium text-gray-900">{row.service}</span>
                           <span className="shrink-0 font-technical tabular-nums text-gray-900">
-                            ₱{row.total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                            {formatPeso(row.total)}
                           </span>
                         </li>
                       ))}
@@ -192,7 +207,7 @@ export function ReportsPage() {
                               <td className="px-3 py-2.5 font-technical text-sm tabular-nums text-gray-900">{b.reference_id}</td>
                               <td className="px-3 py-2.5"><Badge variant="secondary">{b.status}</Badge></td>
                               <td className="px-3 py-2.5 font-technical text-sm tabular-nums text-gray-900">
-                                ₱{Number(b.down_payment_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                                {formatPeso(Number(b.down_payment_amount))}
                               </td>
                             </tr>
                           ))}

@@ -3,13 +3,15 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.deps import AdminTwoFaUser, DbDep, grants
+from app.core.errors import AppError
 from app.core.rate_limit import limiter
 from app.models.users import User
 from app.services import refund_service as refunds
+from app.services.storage_service import get_storage_service
 
 router = APIRouter(tags=["refunds"])
 
@@ -38,6 +40,11 @@ class RefundOut(BaseModel):
     status: str
     admin_notes: str | None = None
     denial_reason: str | None = None
+    refund_to_number: str | None = None
+    refund_to_name: str | None = None
+    refund_method: str | None = None
+    payout_reference_number: str | None = None
+    payout_receipt_url: str | None = None
     processed_at: datetime | None = None
     created_at: datetime
 
@@ -85,3 +92,31 @@ async def review_refund(
         payload.admin_notes, payload.denial_reason,
     )
     return RefundOut.model_validate(row)
+
+
+@router.post("/admin/refunds/{refund_id}/complete", response_model=RefundOut)
+@limiter.limit("60/minute")
+async def complete_refund(
+    request: Request, refund_id: int, db: DbDep,
+    reviewer: Annotated[User, Depends(grants("can_execute_refunds"))],
+    payout_reference_number: str = Form(...),
+    file: UploadFile = File(...),  # noqa: B008 (required FastAPI idiom)
+    refund_to_number: str | None = Form(default=None),
+    refund_to_name: str | None = Form(default=None),
+) -> RefundOut:
+    """Mark approved refund as sent with GCash payout proof."""
+    from sqlalchemy import select
+
+    from app.models.financial import Refund
+
+    result = await db.execute(select(Refund).where(Refund.id == refund_id))
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise AppError("BOOKING_001", "Refund not found.", 404)
+    data = await file.read()
+    key = get_storage_service().save_receipt(row.booking_id, file.filename or "payout", data)
+    completed = await refunds.complete(
+        db, reviewer, refund_id, payout_reference_number, key,
+        refund_to_number, refund_to_name,
+    )
+    return RefundOut.model_validate(completed)

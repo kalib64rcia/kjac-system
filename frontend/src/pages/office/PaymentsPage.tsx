@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { PillTabs } from "@/components/shared/FilterPopover";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
 import { ReceiptViewer } from "@/components/office/BookingDetailSheet";
-import { Badge } from "@/components/ui/badge";
+import { ToneBadge } from "@/components/shared/ToneBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/skeleton";
@@ -13,13 +15,14 @@ import type { AdminBooking } from "@/types/booking.types";
 import { formatDateLong, formatPeso, msUntil } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
-const TABS = ["pending", "verified", "rejected", undefined] as const;
+const TABS = ["pending", "verified", "rejected", "all"] as const;
 type TabFilter = (typeof TABS)[number];
 
-const TAB_LABEL: Record<string, string> = {
+const TAB_LABEL: Record<TabFilter, string> = {
   pending: "Pending",
   verified: "Verified",
   rejected: "Rejected",
+  all: "All",
 };
 
 const EMPTY_COPY: Record<string, string> = {
@@ -52,16 +55,18 @@ function PaymentCard({ booking }: { booking: AdminBooking }) {
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-technical font-semibold text-gray-900">{booking.reference_id}</p>
-        <Badge variant={payment.status === "verified" ? "success" : payment.status === "rejected" ? "destructive" : "warning"}>
-          {payment.status}
-        </Badge>
+        <ToneBadge
+          map={{ verified: "success", rejected: "destructive" }}
+          value={payment.status}
+          label={payment.status}
+        />
         <span className="ml-auto font-technical font-semibold tabular-nums text-gray-900">
           {formatPeso(payment.amount)}
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-gray-600">{customerLine(booking)}</p>
       {payment.gcash_reference_number && (
-        <p className="mt-0.5 truncate text-sm tabular-nums text-gray-500">
+        <p className="mt-0.5 truncate font-technical text-sm tabular-nums text-gray-600">
           GCash ref ID: {payment.gcash_reference_number}
         </p>
       )}
@@ -128,7 +133,8 @@ function PaymentCard({ booking }: { booking: AdminBooking }) {
 
 /** Receipt triage queue: pending first by expiry, history behind filter tabs. */
 export function PaymentsPage() {
-  const [filter, setFilter] = useState<TabFilter>("pending");
+  const [tab, setTab] = useState<TabFilter>("pending");
+  const filter = tab === "all" ? undefined : tab;
   const feed = useAdminBookings({ limit: 100 });
 
   const rows = useMemo(() => {
@@ -153,26 +159,22 @@ export function PaymentsPage() {
           <CardHeader>
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>Receipts</CardTitle>
-              <div className="ml-auto flex gap-1" role="tablist" aria-label="Payment filter">
-                {TABS.map((s) => (
-                  <button
-                    key={s ?? "all"}
-                    type="button"
-                    role="tab"
-                    aria-selected={filter === s}
-                    onClick={() => setFilter(s)}
-                    className={cn(
-                      "min-h-[44px] cursor-pointer rounded-lg px-3 text-sm font-semibold",
-                      filter === s ? "bg-primary-50 text-primary-700" : "text-gray-500 hover:bg-gray-50",
-                    )}
-                  >
-                    {s === undefined ? "All" : TAB_LABEL[s]}
-                  </button>
-                ))}
+              <div className="ml-auto">
+                <PillTabs
+                  label="Payment filter"
+                  options={TABS.map((s) => ({ id: s, name: TAB_LABEL[s] }))}
+                  value={tab}
+                  onPick={setTab}
+                />
               </div>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-gray-600" role="status">
+              {feed.data ? (
+                <>Showing <span className="font-semibold tabular-nums text-gray-900">{rows.length}</span> {rows.length === 1 ? "receipt" : "receipts"}</>
+              ) : ("Loading payments…")}
+            </p>
             {feed.isPending && (
               <div aria-busy="true" aria-label="Loading payments">
                 {[0, 1].map((i) => (
@@ -190,7 +192,10 @@ export function PaymentsPage() {
               <PaymentCard key={b.id} booking={b} />
             ))}
             {!feed.isPending && !feed.isError && rows.length === 0 && (
-              <p className="text-sm text-gray-500">{EMPTY_COPY[filter ?? "all"]}</p>
+              <EmptyState
+                title={tab === "pending" ? "No receipts waiting" : `No ${TAB_LABEL[tab].toLowerCase()} payments`}
+                description={EMPTY_COPY[tab]}
+              />
             )}
           </CardContent>
         </Card>

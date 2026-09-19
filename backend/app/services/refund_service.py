@@ -88,12 +88,11 @@ async def review(
     row = await db.get(Refund, refund_id)
     if row is None:
         raise AppError("BOOKING_001", "Refund not found.", 404)
-    if row.status != "proposed":
+    if row.status not in ("proposed", "processing"):
         raise AppError("BOOKING_003", "Refund is not awaiting review.", 409)
     if approve:
         row.status = "approved"
         row.processed_by_user_id = actor.id
-        row.processed_at = datetime.now(UTC)
         row.admin_notes = admin_notes
     else:
         if not denial_reason:
@@ -110,6 +109,71 @@ async def review(
             f"{'approved' if approve else 'denied'}.",
             row.booking_id,
         )
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def complete(
+    db: AsyncSession, actor: User, refund_id: int,
+    payout_reference_number: str, payout_receipt_url: str,
+    refund_to_number: str | None = None, refund_to_name: str | None = None,
+) -> Refund:
+    import re
+
+    row = await db.get(Refund, refund_id)
+    if row is None:
+        raise AppError("BOOKING_001", "Refund not found.", 404)
+    if row.status != "approved":
+        raise AppError("BOOKING_003", "Only approved refunds can be marked sent.", 409)
+    ref = (payout_reference_number or "").strip()
+    if not ref:
+        raise AppError("BOOKING_003", "Payout reference number is required.", 400)
+    if not (payout_receipt_url or "").strip():
+        raise AppError("BOOKING_003", "Receipt required before marking sent.", 400)
+    # Destination required at payout at the latest: fill from this call
+    # when the cancel did not capture it.
+    target = re.sub(r"\D", "", refund_to_number or row.refund_to_number or "")
+    if not re.fullmatch(r"(09\d{9}|639\d{9})", target):
+        raise AppError(
+            "BOOKING_003",
+            "Refund GCash number is required before marking sent.",
+            400,
+        )
+    row.refund_to_number = target
+    name = (refund_to_name or row.refund_to_name or "").strip()
+    if name:
+        row.refund_to_name = name
+    row.status = "completed"
+    row.payout_reference_number = ref
+    row.payout_receipt_url = payout_receipt_url.strip()
+    row.refund_method = "gcash"
+    row.processed_by_user_id = actor.id
+    row.processed_at = datetime.now(UTC)
+    await db.flush()
+    # Success notice: inbox for accounts, direct email for all (guests have
+    # no inbox). Best effort, never breaks the payout.
+    from app.models.bookings import Booking
+
+    booking = await db.get(Booking, row.booking_id)
+    if booking is not None:
+        if booking.customer_id is not None:
+            await notify(
+                db, booking.customer_id, "refund_completed", "Refund sent",
+                f"Refund #{row.id} (₱{float(row.refund_amount):.2f}) was sent.",
+                row.booking_id,
+            )
+        from app.services.email_service import EmailService
+
+        try:
+            EmailService().send(
+                booking.customer_email,
+                "KJAC: Refund sent",
+                f"Refund #{row.id} (₱{float(row.refund_amount):.2f}) was sent "
+                f"to {target}.",
+            )
+        except Exception:
+            pass
     await db.commit()
     await db.refresh(row)
     return row

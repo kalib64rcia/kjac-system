@@ -85,6 +85,9 @@ class Refund(Base):
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="processing")
 
+    refund_to_number: Mapped[str | None] = mapped_column(String(25))
+    refund_to_name: Mapped[str | None] = mapped_column(String(100))
+
     admin_notes: Mapped[str | None] = mapped_column(Text)
     denial_reason: Mapped[str | None] = mapped_column(Text)
 

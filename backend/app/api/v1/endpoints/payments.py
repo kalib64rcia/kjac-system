@@ -152,7 +152,7 @@ async def review_reschedule(
 async def expire_bookings(
     request: Request, db: DbDep, admin: AdminTwoFaUser
 ) -> ExpireResponse:
-    """Cron entrypoint: flip submitted bookings past expires_at to expired."""
+    """Cron entrypoint: flip submitted and proposed bookings past expires_at to expired."""
     count = await bookings.expire_due_bookings(db)
     return ExpireResponse(expired_count=count)
 

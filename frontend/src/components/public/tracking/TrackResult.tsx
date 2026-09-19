@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Clock, Timer, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -76,28 +77,66 @@ export function TrackResult({
           <CardContent>
             <h2 className="font-bold text-gray-900">Schedule Proposed</h2>
             <p className="mt-1 text-sm text-gray-600">
-              We found an available slot for <span className="font-semibold">{formatDateLong(booking.preferred_date)} at {formatTime12h(booking.preferred_time)}</span>. 
+              We found an available slot for <span className="font-semibold">{formatDateLong(booking.preferred_date)} at {formatTime12h(booking.preferred_time)}</span>.
               Review the proposed time above. If you agree, proceed to payment. If not, you can decline and request a different time.
             </p>
+            <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-warning-700">
+              <Timer size={16} aria-hidden="true" />
+              <span>Pay before: {formatDateLong(booking.preferred_date)} at {formatTime12h(booking.preferred_time)}. Time left: {label}</span>
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+              <Clock size={16} aria-hidden="true" />
+              <span>Pay early for on time arrival. Late payment can mean late arrival.</span>
+            </p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Button onClick={onUpload}>Accept & Pay</Button>
+              <Button onClick={onUpload}>Accept and Pay</Button>
               <Button variant="outline" onClick={onCancel}>Decline</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {booking.status === "scheduled" && (
+      {booking.status === "scheduled" && booking.payment_status === "rejected" && (
         <Card>
           <CardContent>
-            <h2 className="font-bold text-gray-900">Payment Required</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Send payment before expiry to confirm your slot: <span className="font-technical font-semibold tabular-nums">{label}</span>. Pay early so we arrive on time.
+            <h2 className="font-bold text-gray-900">Payment Rejected</h2>
+            <p className="mt-1 flex items-start gap-1.5 text-sm text-gray-600">
+              <TriangleAlert size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-error-600" />
+              <span>{booking.rejection_reason ?? "The receipt could not be verified."} Upload again before the start.</span>
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+              <Clock size={16} aria-hidden="true" />
+              <span>Pay early for on time arrival. Late payment can mean late arrival.</span>
             </p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Button onClick={onUpload}>Pay Now</Button>
+              <Button onClick={onUpload}>Upload Again</Button>
               <Button variant="destructiveOutline" onClick={onCancel}>Cancel Booking</Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {booking.status === "scheduled" && booking.payment_status !== "rejected" && (
+        <Card>
+          <CardContent>
+            <h2 className="font-bold text-gray-900">Payment Under Review</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              We got your receipt. Admin will verify. You will see Confirmed here once approved.
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+              <Clock size={16} aria-hidden="true" />
+              <span>Verification plus prep takes time. Late upload can mean late arrival.</span>
+            </p>
+            {booking.payment_status === "pending" ? (
+              <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm font-medium text-gray-700">
+                Waiting on the office check. Actions return once reviewed.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Button variant="outline" onClick={onUpload}>Re-upload Receipt</Button>
+                <Button variant="destructiveOutline" onClick={onCancel}>Cancel Booking</Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -127,8 +166,12 @@ export function TrackResult({
             </h2>
             <p className="mt-1 text-sm text-gray-600">
               {booking.status === "cancelled"
-                ? "Refunds go back in 3 to 5 business days via GCash if you paid."
-                : "No payment was received in time. No charges applied."}
+                ? booking.refund_status && booking.refund_status !== "none" && booking.refund_amount != null
+                  ? booking.refund_status === "completed"
+                    ? `Refund ${formatPeso(booking.refund_amount)} sent${booking.refund_to_masked ? ` to ${booking.refund_to_masked}` : ""}${booking.payout_reference_number ? ` (Ref ${booking.payout_reference_number})` : ""}.`
+                    : `Refund ${booking.refund_status} ${formatPeso(booking.refund_amount)}${booking.refund_to_masked ? ` to ${booking.refund_to_masked}` : ""}. Check GCash in 3 to 5 days.`
+                  : "No charge applied."
+                : "Slot released. No payment in time. No charge applied."}
             </p>
             <div className="mt-3">
               <Button asChild className="px-6">

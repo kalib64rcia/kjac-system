@@ -4,6 +4,15 @@ import { cn } from "@/lib/utils";
 
 export type { Matcher };
 
+/** Dead-end nav arrows (no month beyond startMonth/endMonth) become
+ *  natively disabled: out of tab order, unclickable, announced as
+ *  disabled. Chevron children and classes flow through untouched, so
+ *  unconstrained calendars render exactly as before. */
+function NavButton(props: React.ComponentProps<"button">) {
+  const { ["aria-disabled"]: ariaDisabled, ...rest } = props;
+  return <button {...rest} aria-disabled={ariaDisabled} disabled={ariaDisabled === true} />;
+}
+
 /** Shadcn-pattern calendar (react-day-picker) with KJAC tokens. */
 export function Calendar({
   className,
@@ -13,6 +22,7 @@ export function Calendar({
     <DayPicker
       showOutsideDays
       className={cn("p-3", className)}
+      components={{ PreviousMonthButton: NavButton, NextMonthButton: NavButton }}
       classNames={{
         months: "flex flex-col gap-4",
         month: "flex flex-col gap-3",

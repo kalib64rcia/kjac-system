@@ -52,6 +52,13 @@ export function formatTimeRange(hhmm: string | null, durationMins?: number | nul
   return `${start} – ${formatTime12h(addMinutesToTime(hhmm, durationMins))}`;
 }
 
+/** "pending_approval" → "Pending approval". Single home for enum labels. */
+export function prettyEnum(value: string | null | undefined): string {
+  if (!value) return "";
+  const s = value.replaceAll("_", " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** Initials for avatar fallbacks — first + last name, email letter backup. */
 export function getInitials(
   firstName?: string | null,

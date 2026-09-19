@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
 import { DetailRow } from "@/components/shared/DetailRow";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +16,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
-  SheetCloseButton,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -186,6 +187,8 @@ function Body({
   startAssignOpen?: boolean 
 }) {
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const base = user?.role === "owner" ? "/owner" : "/staff";
   const mut = useBookingMutation();
   const [assignOpen, setAssignOpen] = useState(startAssignOpen);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
@@ -274,7 +277,7 @@ function Body({
             <p className="text-sm text-gray-600">No payment record linked.</p>
           )}
           {!payment && booking.status === "scheduled" && (
-            <p className="text-sm text-gray-600">No receipt yet. Payment is due after accept. The request closes if not paid by the start.</p>
+            <p className="text-sm text-gray-600">Receipt uploaded. Waiting for admin review.</p>
           )}
           {!payment && booking.status !== "submitted" && booking.status !== "scheduled" && (
             <p className="text-sm text-gray-600">No payment record linked.</p>
@@ -286,9 +289,65 @@ function Body({
               {payment.gcash_reference_number && (
                 <DetailRow label="GCash ref" value={payment.gcash_reference_number} />
               )}
+              {payment.submitted_at && (
+                <DetailRow
+                  label="Received"
+                  value={new Date(payment.submitted_at).toLocaleString('en-PH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Manila',
+                  })}
+                />
+              )}
             </dl>
           )}
           {payment && <ReceiptViewer paymentUuid={payment.uuid} referenceId={booking.reference_id} gcashRefId={payment.gcash_reference_number} />}
+          {payment && payment.status !== "pending" && (
+            <div className="mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  navigate(`${base}/refunds`, {
+                    state: {
+                      booking_id: booking.id,
+                      payment_id: payment.id,
+                      refund_amount: payment.amount,
+                    },
+                  })
+                }
+              >
+                Propose refund
+              </Button>
+            </div>
+          )}
+          {(booking.timeline ?? []).filter((t) => (t.note ?? "").toLowerCase().includes("upload")).length > 0 && (
+            <div className="mt-3 rounded-lg bg-gray-50 p-3">
+              <p className="text-sm font-semibold text-gray-900">Receipt activity</p>
+              <ul className="mt-1 flex flex-col gap-1">
+                {(booking.timeline ?? [])
+                  .filter((t) => (t.note ?? "").toLowerCase().includes("upload"))
+                  .map((t, i) => (
+                    <li key={i} className="text-sm text-gray-600">
+                      {t.note}
+                      {t.at && (
+                        <> · {new Date(t.at).toLocaleString('en-PH', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'Asia/Manila',
+                        })}</>
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
           {payment && payment.status === "pending" && (
             canVerify ? (
               <div className="mt-3 flex gap-2">
@@ -415,10 +474,10 @@ function Body({
 
         <Block title="Submitted">
           <p className="text-sm text-gray-700">
-            {booking.created_at 
-              ? `${new Date(booking.created_at).toLocaleString('en-PH', { 
-                  year: 'numeric', 
-                  month: 'long', 
+            {booking.created_at
+              ? `${new Date(booking.created_at).toLocaleString('en-PH', {
+                  year: 'numeric',
+                  month: 'long',
                   day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
@@ -427,6 +486,27 @@ function Body({
               : "No history yet."}
           </p>
         </Block>
+
+        {booking.status === "cancelled" && (
+          <Block title="Cancellation">
+            <dl>
+              <DetailRow label="Reason" value={booking.cancellation_reason ?? "—"} />
+              {booking.refund ? (
+                <>
+                  <DetailRow label="Refund" value={`${booking.refund.status} · ${formatPeso(booking.refund.refund_amount)}`} />
+                  {(booking.refund.refund_to_number || booking.refund.refund_to_name) && (
+                    <DetailRow
+                      label="Send to"
+                      value={[booking.refund.refund_to_number, booking.refund.refund_to_name].filter(Boolean).join(", ")}
+                    />
+                  )}
+                </>
+              ) : (
+                <DetailRow label="Refund" value="No payment, nothing to refund." />
+              )}
+            </dl>
+          </Block>
+        )}
 
         {booking.status === "submitted" && (
           <Button
@@ -438,47 +518,106 @@ function Body({
         )}
 
         {booking.status === "proposed" && (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() =>
-              setConfirm({
-                title: `Remove ${booking.reference_id} from schedule?`,
-                body: "Booking returns to unscheduled pool. Customer will not be notified.",
-                confirmLabel: "Remove from schedule",
-                onConfirm: async () => {
-                  await mut.unschedule.mutateAsync(booking.id);
-                  toast.success("Removed from schedule", "Booking returned to unscheduled pool.");
-                  onClose();
-                },
-              })
-            }
-          >
-            Remove from schedule
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={payment?.status === "pending"}
+              onClick={() =>
+                setConfirm({
+                  title: `Remove ${booking.reference_id} from schedule?`,
+                  body: "Booking returns to unscheduled pool. Customer sees updated schedule in track.",
+                  confirmLabel: "Remove from schedule",
+                  onConfirm: async () => {
+                    await mut.unschedule.mutateAsync(booking.id);
+                    toast.success("Removed from schedule", "Booking returned to unscheduled pool.");
+                    onClose();
+                  },
+                })
+              }
+            >
+              Remove from schedule
+            </Button>
+            {payment?.status === "pending" && (
+              <p className="text-xs text-gray-500">Payment under review. Verify or reject first.</p>
+            )}
+          </>
         )}
 
         {cancellable && (
-          <Button
-            variant="destructiveOutline"
-            className="w-full"
-            onClick={() =>
+          <>
+            <Button
+              variant="destructiveOutline"
+              className="w-full"
+              disabled={payment?.status === "pending"}
+              onClick={() => {
+              const needsTarget = payment?.status === "pending" || payment?.status === "verified";
               setConfirm({
                 title: `Cancel ${booking.reference_id}?`,
-                body: "Refund follows policy: full before confirmation, decided same-day, none once dispatched.",
+                body: (
+                  <>
+                    <p>Refund follows policy: full before confirmation, decided same-day, none once dispatched.</p>
+                    {needsTarget && (
+                      <div className="mt-3 grid grid-cols-1 gap-2">
+                        <label className="text-sm font-medium text-gray-900" htmlFor="admin-cancel-gcash">
+                          Refund to GCash number
+                        </label>
+                        <input
+                          id="admin-cancel-gcash"
+                          inputMode="numeric"
+                          placeholder="09xx xxx xxxx"
+                          className="min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 focus:border-primary-600 focus:outline-none"
+                        />
+                        <label className="text-sm font-medium text-gray-900" htmlFor="admin-cancel-gcash-name">
+                          Name on GCash
+                        </label>
+                        <input
+                          id="admin-cancel-gcash-name"
+                          placeholder="Juan D"
+                          className="min-h-[44px] w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 placeholder:text-gray-400 focus:border-primary-600 focus:outline-none"
+                        />
+                        <p className="text-xs text-gray-500">Optional now. Required before payout.</p>
+                      </div>
+                    )}
+                  </>
+                ),
                 confirmLabel: "Cancel booking",
                 destructive: true,
                 requireReason: "Cancellation reason",
                 onConfirm: async (reason: string) => {
-                  const res = await mut.cancel.mutateAsync({ id: booking.id, reason });
-                  toast.success("Booking cancelled", `Refund ${res.refund_status}: ${formatPeso(res.refund_amount)}.`);
+                  if (needsTarget) {
+                    const numEl = document.getElementById("admin-cancel-gcash") as HTMLInputElement | null;
+                    const nameEl = document.getElementById("admin-cancel-gcash-name") as HTMLInputElement | null;
+                    const rawDigits = (numEl?.value ?? "").replace(/\D/g, "");
+                    const name = (nameEl?.value ?? "").trim();
+                    if (rawDigits === "" && name === "") {
+                      const res = await mut.cancel.mutateAsync({ id: booking.id, reason });
+                      toast.success("Booking cancelled", `Refund ${res.refund_status}: ${formatPeso(res.refund_amount)}.`);
+                    } else {
+                      if (!/^(09\d{9}|639\d{9})$/.test(rawDigits)) {
+                        throw new Error("Enter active GCash number for refund.");
+                      }
+                      if (name.length < 2) {
+                        throw new Error("Enter the name on GCash.");
+                      }
+                      const res = await mut.cancel.mutateAsync({ id: booking.id, reason, refundTo: { number: rawDigits, name } });
+                      toast.success("Booking cancelled", `Refund ${res.refund_status}: ${formatPeso(res.refund_amount)}.`);
+                    }
+                  } else {
+                    const res = await mut.cancel.mutateAsync({ id: booking.id, reason });
+                    toast.success("Booking cancelled", `Refund ${res.refund_status}: ${formatPeso(res.refund_amount)}.`);
+                  }
                   onClose();
                 },
-              })
-            }
+              });
+            }}
           >
             Cancel booking
           </Button>
+            {payment?.status === "pending" && (
+              <p className="text-xs text-gray-500">Payment under review. Verify or reject first.</p>
+            )}
+          </>
         )}
       </div>
 
@@ -505,21 +644,18 @@ export function BookingDetailSheet({
     <Sheet open={booking !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
         label="Booking details"
+        side="right"
         onClose={onClose}
         className="w-[92%] max-w-md p-0"
       >
         <SheetTitle className="sr-only">Booking details</SheetTitle>
         {booking && (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-technical text-sm font-semibold text-gray-900">
-                  {booking.reference_id}
-                </p>
-              </div>
-              <StatusBadge status={booking.status} />
-              <SheetCloseButton onClose={onClose} />
-            </div>
+            <DrawerHeader
+              title={<span className="font-technical text-sm">{booking.reference_id}</span>}
+              action={<StatusBadge status={booking.status} />}
+              onClose={onClose}
+            />
             <ScrollArea className="min-h-0 flex-1">
               <div className="p-4">
                 <Body key={booking.id} booking={booking} onClose={onClose} onProposeSchedule={onProposeSchedule} startAssignOpen={startAssignOpen} />

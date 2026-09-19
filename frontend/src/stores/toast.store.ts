@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { ApiError } from "@/api/errors";
 
 export type ToastKind = "success" | "error" | "warning" | "info";
 
@@ -41,3 +42,29 @@ export const toast = {
   info: (title: string, message?: string) =>
     useToastStore.getState().push("info", title, message),
 };
+
+/** Mutation + toasts in one call. Returns the result, or null on failure
+ *  (error already toasted) so call sites skip their follow-up lines.
+ *  Never use inside ConfirmDialog onConfirm — the dialog needs the throw
+ *  to show inline errors instead of closing. */
+export async function toastMutation<T>(
+  fn: () => Promise<T>,
+  msgs: {
+    success?: string;
+    successDetail?: string | ((result: T) => string | undefined);
+    error?: string;
+  },
+): Promise<T | null> {
+  try {
+    const result = await fn();
+    if (msgs.success !== undefined) {
+      const detail =
+        typeof msgs.successDetail === "function" ? msgs.successDetail(result) : msgs.successDetail;
+      toast.success(msgs.success, detail);
+    }
+    return result;
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : (msgs.error ?? "Action failed."));
+    return null;
+  }
+}

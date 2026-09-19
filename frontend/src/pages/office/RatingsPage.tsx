@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Star } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { FilterPopover } from "@/components/shared/FilterPopover";
-import { ApiError } from "@/api/errors";
 import { useOfficeUsers, useRatingMutation, useTechRatings } from "@/hooks/useOffice";
-import { toast } from "@/stores/toast.store";
+import { toastMutation } from "@/stores/toast.store";
+import { formatAuditDay } from "@/utils/format";
 
 /** Ratings board: shared by owner + staff routes. Lookup per technician (no admin list endpoint). */
 export function RatingsPage() {
@@ -28,13 +28,13 @@ export function RatingsPage() {
 
   const remove = async () => {
     if (confirmDelete == null) return;
-    try {
-      await mutations.remove.mutateAsync(confirmDelete);
-      toast.success("Review deleted.", "The technician average was recalculated.");
-      setConfirmDelete(null);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete review.");
-    }
+    const removed = await toastMutation(() => mutations.remove.mutateAsync(confirmDelete), {
+      success: "Review deleted.",
+      successDetail: "The technician average was recalculated.",
+      error: "Could not delete review.",
+    });
+    if (removed === null) return;
+    setConfirmDelete(null);
   };
 
   return (
@@ -79,13 +79,13 @@ export function RatingsPage() {
             <CardContent>
               <div className="flex flex-wrap items-start gap-3 pt-6">
                 <div className="min-w-0 flex-1">
-                  <p className="font-technical text-sm font-semibold tabular-nums text-amber-500" aria-label={`${r.rating} out of 5 stars`}>
+                  <p className="font-technical text-sm font-semibold tabular-nums text-warning-500" aria-label={`${r.rating} out of 5 stars`}>
                     {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
                     <span className="ml-2 text-gray-900">{r.rating}/5</span>
                   </p>
                   {r.review_text && <p className="mt-1 text-sm text-gray-900">{r.review_text}</p>}
                   <p className="mt-1 font-technical text-xs tabular-nums text-gray-600">
-                    {new Date(r.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                    {formatAuditDay(r.created_at)}
                   </p>
                 </div>
                 <Button type="button" variant="destructiveOutline" size="sm" onClick={() => setConfirmDelete(r.id)}>

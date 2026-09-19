@@ -1,98 +1,73 @@
-import { useEffect, useMemo, useState } from "react";
-import { Lock, Play } from "lucide-react";
+﻿import { useMemo } from "react";
+import {
+  Activity,
+  Archive,
+  BellRing,
+  CalendarCheck,
+  Clock3,
+  Compass,
+  Gauge,
+  KeyRound,
+  MessageCircle,
+  Phone,
+  Play,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/input";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/api/errors";
-import type { AdminSetting } from "@/types/booking.types";
-import { useAdminSettings, usePatchSetting, useReminderRun } from "@/hooks/useOffice";
+import { useAdminSettings, useReminderRun } from "@/hooks/useOffice";
+import { useSettingsForm } from "@/hooks/useSettingsForm";
 import { useAuthStore } from "@/stores/auth.store";
 import { toast } from "@/stores/toast.store";
+import { SettingField } from "@/components/office/settings/SettingField";
+import { SettingSection } from "@/components/office/settings/SettingSection";
+import { SettingsTabs } from "@/components/office/settings/SettingsTabs";
+import { TabGlobalActions } from "@/components/office/settings/TabGlobalActions";
+import { BusinessHoursField } from "@/components/office/settings/BusinessHoursField";
+import { FAQSection } from "@/components/office/settings/FAQSection";
+import {
+  FAQ_ITEMS_KEY,
+  HOURS_KEYS,
+  LONG_TEXT_KEYS,
+  SECTIONS,
+  SHOW_FAQ_KEY,
+  SUNDAY_KEY,
+  type SectionDef,
+} from "@/components/office/settings/settingsConfig";
+import { cn } from "@/lib/utils";
 
-const GROUP_ORDER = ["booking", "payment", "rate_limiting", "auth", "business", "system"];
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  contact: Phone,
+  hours: Clock3,
+  mission: Compass,
+  faq: MessageCircle,
+  booking: CalendarCheck,
+  payment: Wallet,
+  bookingRate: Gauge,
+  reminders: BellRing,
+  session: KeyRound,
+  apiLimits: Activity,
+  archive: Archive,
+};
 
-function groupTitle(category: string | null): string {
-  switch (category) {
-    case "booking": return "Booking";
-    case "payment": return "Payments (GCash)";
-    case "rate_limiting": return "Rate limits";
-    case "auth": return "Sessions & login";
-    case "business": return "Business info";
-    case "system": return "System";
-    default: return category ? category.charAt(0).toUpperCase() + category.slice(1) : "Other";
-  }
-}
-
-function parseBool(value: string): boolean {
-  return value.toLowerCase() === "true" || value === "1";
-}
-
-/** Settings board: owner-only. Every row PATCHes one key (type-coerced server-side). */
+/** Settings board: owner-only. Tabbed sections with section-level and
+ *  tab-level save/reset. Every save PATCHes keys into system_settings,
+ *  so public pages pick values up from the database. */
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const settings = useAdminSettings(user?.role === "owner");
-  const patch = usePatchSetting();
   const reminders = useReminderRun();
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const form = useSettingsForm(settings.data);
 
-  useEffect(() => {
-    if (settings.data) {
-      setDrafts((prev) => {
-        const next = { ...prev };
-        for (const s of settings.data ?? []) {
-          if (!(s.setting_key in next)) next[s.setting_key] = s.setting_value;
-        }
-        return next;
-      });
-    }
-  }, [settings.data]);
-
-  const groups = useMemo(() => {
-    const items = settings.data ?? [];
-    const byCat = new Map<string, AdminSetting[]>();
-    for (const s of items) {
-      const cat = s.category ?? "other";
-      if (!byCat.has(cat)) byCat.set(cat, []);
-      byCat.get(cat)?.push(s);
-    }
-    const cats = [...byCat.keys()].sort(
-      (a, b) => (GROUP_ORDER.indexOf(a) === -1 ? 99 : GROUP_ORDER.indexOf(a)) - (GROUP_ORDER.indexOf(b) === -1 ? 99 : GROUP_ORDER.indexOf(b)),
-    );
-    return cats.map((cat) => ({ cat, items: byCat.get(cat) ?? [] }));
-  }, [settings.data]);
-
-  const save = async (key: string) => {
-    setSavingKey(key);
-    try {
-      await patch.mutateAsync({ key, value: drafts[key] ?? "" });
-      toast.success("Setting saved.");
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save setting.");
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  const toggleBool = async (row: AdminSetting, checked: boolean) => {
-    const value = checked ? "true" : "false";
-    setDrafts((d) => ({ ...d, [row.setting_key]: value }));
-    setSavingKey(row.setting_key);
-    try {
-      await patch.mutateAsync({ key: row.setting_key, value });
-      toast.success("Setting saved.");
-    } catch (err) {
-      setDrafts((d) => ({ ...d, [row.setting_key]: row.setting_value }));
-      toast.error(err instanceof ApiError ? err.message : "Could not save setting.");
-    } finally {
-      setSavingKey(null);
-    }
-  };
+  const sections = useMemo(
+    () => SECTIONS.filter((s) => s.tab === form.activeTab),
+    [form.activeTab],
+  );
 
   const runReminders = async () => {
     try {
@@ -105,7 +80,7 @@ export function SettingsPage() {
 
   return (
     <div className="min-w-0">
-      <PageHeader title="Settings" description="Business rules, GCash details, and limits. Owner only — changes apply immediately." />
+      <PageHeader title="Settings" description="Public site content, booking rules, and limits. Owner only." />
       {settings.isLoading && !settings.data && (
         <div aria-busy="true" aria-label="Loading settings">{[0, 1].map((i) => (<CardSkeleton key={i} />))}</div>
       )}
@@ -117,89 +92,128 @@ export function SettingsPage() {
       )}
       {(settings.data ?? []).length > 0 && (
         <div className="flex min-w-0 flex-col gap-4">
-          {groups.map(({ cat, items }) => (
-            <Card key={cat}>
-              <CardHeader>
-                <CardTitle>{groupTitle(cat)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-col divide-y divide-gray-100">
-                  {items.map((row) => (
-                    <SettingRow
-                      key={row.setting_key}
-                      row={row}
-                      draft={drafts[row.setting_key] ?? row.setting_value}
-                      saving={savingKey === row.setting_key}
-                      onDraft={(v) => setDrafts((d) => ({ ...d, [row.setting_key]: v }))}
-                      onSave={() => void save(row.setting_key)}
-                      onToggle={(v) => void toggleBool(row, v)}
-                    />
-                  ))}
-                </ul>
-                {cat === "booking" && (
-                  <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">Guest reminders</p>
-                      <p className="text-xs text-gray-600">One manual pass: tomorrow&apos;s bookings + payments expiring within 2 hours. Never resends.</p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void runReminders()} disabled={reminders.isPending}>
-                      <Play size={16} aria-hidden="true" data-icon="inline-start" />
-                      {reminders.isPending ? "Running…" : "Run now"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <SettingsTabs active={form.activeTab} onChange={form.setActiveTab} isDirty={form.isTabDirty} />
+          {sections.map((s) => (
+            <SectionCard key={s.id} def={s} form={form} onRunReminders={() => void runReminders()} runBusy={reminders.isPending} />
           ))}
+          <TabGlobalActions
+            dirtyCount={form.tabDirtyCount(form.activeTab)}
+            saving={form.saving}
+            onSaveAll={() => form.askSaveTab(form.activeTab)}
+            onResetAll={() => form.askResetTab(form.activeTab)}
+          />
         </div>
       )}
+      <ConfirmDialog spec={form.confirm} onClose={form.closeConfirm} />
     </div>
   );
 }
 
-function SettingRow({ row, draft, saving, onDraft, onSave, onToggle }: {
-  row: AdminSetting;
-  draft: string;
-  saving: boolean;
-  onDraft: (v: string) => void;
-  onSave: () => void;
-  onToggle: (v: boolean) => void;
+type Form = ReturnType<typeof useSettingsForm>;
+
+function SectionCard({ def, form, onRunReminders, runBusy }: {
+  def: SectionDef;
+  form: Form;
+  onRunReminders: () => void;
+  runBusy: boolean;
 }) {
-  const dirty = draft !== row.setting_value;
-  return (
-    <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="font-technical text-sm font-semibold tabular-nums text-gray-900">{row.setting_key}</p>
-        {row.description && <p className="mt-0.5 text-xs text-gray-600">{row.description}</p>}
-        {!row.is_editable && (
-          <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-600">
-            <Lock size={12} aria-hidden="true" /> Locked by the system
-          </p>
+  const Icon = SECTION_ICONS[def.id] ?? Phone;
+  const dirty = form.isSectionDirty(def);
+
+  if (def.custom === "hours") {
+    const missing = HOURS_KEYS.some((k) => !form.byKey.has(k));
+    return (
+      <SettingSection
+        icon={<Icon size={18} />}
+        title={def.title}
+        dirty={dirty}
+        saving={form.saving}
+        onSave={() => form.askSaveSection(def)}
+        onReset={() => form.askResetSection(def)}
+      >
+        {missing ? (
+          <p className="text-sm text-gray-600">Business-hours settings are being provisioned. Reload after the update.</p>
+        ) : (
+          <BusinessHoursField
+            daysValue={form.draftOf(HOURS_KEYS[0])}
+            openValue={form.draftOf(HOURS_KEYS[1])}
+            closeValue={form.draftOf(HOURS_KEYS[2])}
+            onChange={(p) => {
+              if (p.days !== undefined) form.setDraft(HOURS_KEYS[0], p.days);
+              if (p.open !== undefined) form.setDraft(HOURS_KEYS[1], p.open);
+              if (p.close !== undefined) form.setDraft(HOURS_KEYS[2], p.close);
+            }}
+            disabled={form.saving}
+          />
         )}
-      </div>
-      {row.is_editable ? (
-        <div className="flex shrink-0 items-center gap-2">
-          {row.data_type === "boolean" ? (
-            <Switch checked={parseBool(draft)} onCheckedChange={onToggle} aria-label={row.setting_key} />
-          ) : (
-            <>
-              <Label htmlFor={`setting-${row.setting_key}`} className="sr-only">{row.setting_key}</Label>
-              <Input
-                id={`setting-${row.setting_key}`}
-                value={draft}
-                inputMode={row.data_type === "integer" ? "numeric" : undefined}
-                onChange={(e) => onDraft(e.target.value)}
-                className="w-44 font-technical tabular-nums"
+      </SettingSection>
+    );
+  }
+
+  if (def.custom === "faq") {
+    const itemsRow = form.byKey.get(FAQ_ITEMS_KEY);
+    const showRow = form.byKey.get(SHOW_FAQ_KEY);
+    if (!itemsRow) return null;
+    return (
+      <SettingSection
+        icon={<Icon size={18} />}
+        title={def.title}
+        dirty={dirty}
+        saving={form.saving}
+        saveLabel="Save All FAQs"
+        onSave={() => form.askSaveSection(def)}
+        onReset={() => form.askResetSection(def)}
+      >
+        <FAQSection
+          value={form.draftOf(FAQ_ITEMS_KEY)}
+          onChange={(v) => form.setDraft(FAQ_ITEMS_KEY, v)}
+          showValue={form.draftOf(SHOW_FAQ_KEY) === "true"}
+          onShowChange={(v) => showRow && form.setDraft(SHOW_FAQ_KEY, v ? "true" : "false")}
+          disabled={form.saving}
+        />
+      </SettingSection>
+    );
+  }
+
+  const fields = def.keys
+    .map((k) => form.byKey.get(k))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
+  if (fields.length === 0) return null;
+
+  return (
+    <SettingSection
+      icon={<Icon size={18} />}
+      title={def.title}
+      dirty={dirty}
+      saving={form.saving}
+      onSave={() => form.askSaveSection(def)}
+      onReset={() => form.askResetSection(def)}
+      extra={def.id === "reminders" ? (
+        <Button type="button" variant="outline" size="sm" onClick={onRunReminders} disabled={runBusy} className="sm:mr-auto">
+          <Play size={16} aria-hidden="true" data-icon="inline-start" />
+          {runBusy ? "Running…" : "Run now"}
+        </Button>
+      ) : undefined}
+    >
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
+        {fields.map((row) => {
+          const sundayLocked = row.setting_key === SUNDAY_KEY && !form.sundayInHours;
+          const wide = row.data_type === "boolean" || LONG_TEXT_KEYS.has(row.setting_key) || row.setting_key === "contact_address";
+          return (
+            <div key={row.setting_key} className={cn(wide && "sm:col-span-2")}>
+              <SettingField
+                row={row}
+                value={form.draftOf(row.setting_key)}
+                onChange={(v) => form.setDraft(row.setting_key, v)}
+                disabled={form.saving || sundayLocked}
               />
-              <Button type="button" size="sm" onClick={onSave} disabled={!dirty || saving || draft.trim() === ""}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </>
-          )}
-        </div>
-      ) : (
-        <p className="shrink-0 font-technical text-sm tabular-nums text-gray-600">{row.setting_value}</p>
-      )}
-    </li>
+              {sundayLocked && (
+                <p className="mt-1 text-xs text-gray-600">Enable Sunday in Business Hours first.</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </SettingSection>
   );
 }

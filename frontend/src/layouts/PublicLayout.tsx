@@ -97,7 +97,7 @@ function MobileSheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
         label="Menu"
-        side="right"
+        side="left"
         onClose={() => setOpen(false)}
         className="top-20 bottom-0 left-0 right-0 h-[calc(100dvh-5rem)] w-full max-w-none border-t border-gray-200 z-40 p-0 shadow-xl bg-white"
         overlayClassName="top-20 z-40"

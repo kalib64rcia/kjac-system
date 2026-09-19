@@ -7,10 +7,8 @@ import { ContactSection } from "@/components/public/ContactSection";
 import { Reveal } from "@/components/public/Decor";
 import { Faq } from "@/components/public/Faq";
 import { Footer } from "@/components/public/Footer";
-import { GuidesGrid } from "@/components/public/GuidesGrid";
 import { Hero } from "@/components/public/Hero";
 import { MissionVision } from "@/components/public/MissionVision";
-import { PromoBand } from "@/components/public/PromoBand";
 import { ServicesSection } from "@/components/public/ServicesSection";
 import { Testimonials } from "@/components/public/Testimonials";
 import { WhyChooseUs } from "@/components/public/WhyChooseUs";
@@ -30,10 +28,12 @@ export function HomePage() {
       <Reveal><WhyChooseUs /></Reveal>
       <MissionVision content={content} />
       {content.show_testimonials && <Testimonials />}
+      {/*
       {content.show_gallery && (
         <Reveal><GuidesGrid /></Reveal>
       )}
       <PromoBand />
+      **/}
       {content.show_faq && <Faq items={content.faq_items} />}
       <ContactSection content={content} />
       <Footer content={content} />

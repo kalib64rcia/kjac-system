@@ -67,7 +67,7 @@ export interface Movement {
 }
 
 export const inventoryApi = {
-  list: (params?: { search?: string; item_type?: string; low_stock?: boolean; page?: number; limit?: number }) =>
+  list: (params?: { search?: string; item_type?: string; low_stock?: boolean; page?: number; limit?: number; sort_by?: string; sort_dir?: string }) =>
     api.get<InventoryList>("/admin/inventory", { params }).then((r) => r.data),
 
   create: (payload: InventoryCreate) =>
@@ -123,7 +123,7 @@ export interface PayrollGenerate {
 }
 
 export const payrollApi = {
-  list: (params?: { employee_user_id?: number; payroll_status?: string; page?: number; limit?: number }) =>
+  list: (params?: { employee_user_id?: number; payroll_status?: string; search?: string; page?: number; limit?: number; sort_by?: string; sort_dir?: string }) =>
     api.get<{ total: number; items: PayrollRecord[] }>("/admin/payroll", { params }).then((r) => r.data),
 
   generate: (payload: PayrollGenerate) =>

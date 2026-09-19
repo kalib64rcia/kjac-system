@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BellOff, CheckCheck } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -7,13 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { FilterPopover, RowsSelect, TableLoadingBar } from "@/components/shared/FilterPopover";
+import { FilterPopover, RowsSelect, SwitchChip, TableLoadingBar } from "@/components/shared/FilterPopover";
 import type { OfficeNotification } from "@/api/office-ext.api";
 import { useNotificationMutation, useNotifications } from "@/hooks/useOffice";
 import { useAuthStore } from "@/stores/auth.store";
-import { toast } from "@/stores/toast.store";
-import { ApiError } from "@/api/errors";
+import { toastMutation } from "@/stores/toast.store";
 
 const TYPE_OPTIONS = [
   { id: "booking", name: "Bookings" },
@@ -80,12 +78,11 @@ export function NotificationsPage() {
   };
 
   const markAll = async () => {
-    try {
-      const result = await mutations.markAllRead.mutateAsync();
-      toast.success("All caught up.", `${result.marked_read} marked as read.`);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not mark all as read.");
-    }
+    await toastMutation(() => mutations.markAllRead.mutateAsync(), {
+      success: "All caught up.",
+      successDetail: (result) => `${result.marked_read} marked as read.`,
+      error: "Could not mark all as read.",
+    });
   };
 
   return (
@@ -99,10 +96,7 @@ export function NotificationsPage() {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900">
-          <Switch checked={unreadOnly} onCheckedChange={(v) => { setUnreadOnly(v); setPage(1); }} aria-label="Show unread only" />
-          Unread only
-        </label>
+        <SwitchChip label="Unread only" checked={unreadOnly} onCheckedChange={(v) => { setUnreadOnly(v); setPage(1); }} />
         <FilterPopover
           label="types"
           display={typeFilter ? TYPE_OPTIONS.find((o) => o.id === typeFilter)?.name ?? typeFilter : "All types"}

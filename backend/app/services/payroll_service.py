@@ -8,7 +8,7 @@ service base price or a fixed amount). Eligibility = completed only; the
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -139,16 +139,34 @@ async def transition_payroll(
 async def list_payrolls(
     db: AsyncSession, employee_id: int | None, status: str | None,
     page: int, limit: int,
+    sort_by: str = "newest", sort_dir: str = "desc",
+    search: str | None = None,
 ) -> tuple[int, list[PayrollRecord]]:
     query = select(PayrollRecord)
     if employee_id is not None:
         query = query.where(PayrollRecord.employee_user_id == employee_id)
     if status:
         query = query.where(PayrollRecord.status == status)
+    if search and search.strip():
+        q = f"%{search.strip()}%"
+        query = query.join(User, User.id == PayrollRecord.employee_user_id).where(
+            or_(
+                User.first_name.ilike(q),
+                User.last_name.ilike(q),
+                User.email.ilike(q),
+                (User.first_name + " " + User.last_name).ilike(q),
+            )
+        )
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    column = {
+        "newest": PayrollRecord.id,
+        "period": PayrollRecord.period_start_date,
+        "net": PayrollRecord.net_pay,
+    }.get(sort_by, PayrollRecord.id)
+    ordering = column.desc() if sort_dir == "desc" else column.asc()
     rows = (
         await db.execute(
-            query.order_by(PayrollRecord.id.desc())
+            query.order_by(ordering)
             .offset((page - 1) * limit).limit(limit)
         )
     ).scalars()

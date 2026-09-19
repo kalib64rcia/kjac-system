@@ -1,20 +1,19 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Eye, Download, Search } from "lucide-react";
+import { Eye, Download } from "lucide-react";
 import { Block } from "@/components/office/BookingDetailSheet";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { FilteredEmptyState } from "@/components/shared/EmptyState";
 import { DetailRow } from "@/components/shared/DetailRow";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { FilterPopover, RowsSelect, SortHeaderButton, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
+import { FilterPopover, ListLoading, PaginationFooter, ResultCount, SearchField, SortHeaderButton, TABLE_BASE, TableShell, TH_CELL, THEAD_ROW, TR_ROW, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { CardSkeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetCloseButton, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { auditApi, type AuditLog } from "@/api/office.api";
 import { useAuditLogs, useOfficeUsers } from "@/hooks/useOffice";
 import { toast } from "@/stores/toast.store";
-import { formatAuditClock, formatAuditDay, getInitials, manilaToday } from "@/utils/format";
+import { formatAuditClock, formatAuditDay, getInitials, manilaToday, prettyEnum } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
 const AREA_OPTIONS = [
@@ -44,31 +43,20 @@ function actorInitials(name: string | null | undefined): string {
   return getInitials(parts[0] ?? "", parts[parts.length - 1] ?? "", null);
 }
 
-function capRole(role: string | null | undefined): string {
-  if (!role) return "";
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
 /** Entry detail: right drawer in the booking-sheet pattern. */
 function AuditDetailSheet({ entry, onClose }: { entry: AuditLog | null; onClose: () => void }) {
   return (
     <Sheet open={entry !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
         label="Audit entry details"
+        side="right"
         onClose={onClose}
         className="w-[92%] max-w-md p-0"
       >
         <SheetTitle className="sr-only">Audit entry details</SheetTitle>
         {entry && (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-900">
-                  {entry.action_label || "Entry details"}
-                </p>
-              </div>
-              <SheetCloseButton onClose={onClose} />
-            </div>
+            <DrawerHeader title={entry.action_label || "Entry details"} onClose={onClose} />
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-4 p-4">
                 <Block title="What happened">
@@ -82,7 +70,7 @@ function AuditDetailSheet({ entry, onClose }: { entry: AuditLog | null; onClose:
                       label="Author"
                       value={
                         entry.actor_name
-                          ? `${entry.actor_name}${entry.actor_role ? ` (${capRole(entry.actor_role)})` : ""}`
+                          ? `${entry.actor_name}${entry.actor_role ? ` (${prettyEnum(entry.actor_role)})` : ""}`
                           : "System"
                       }
                     />
@@ -229,21 +217,7 @@ export function AuditPage() {
       />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-52">
-          <Search
-            size={18}
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search names, references, IDs…"
-            aria-label="Search audit history"
-            title="Search by name, reference code, or ID"
-            className="pl-10"
-          />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Search names, references, IDs…" label="Search audit history" title="Search by name, reference code, or ID" />
         <FilterPopover
           label="people"
           display={actorName ?? "All people"}
@@ -279,33 +253,11 @@ export function AuditPage() {
         </Button>
       </div>
 
-      <div className="flex min-h-[44px] items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" role="status">
-          {logs.data ? (
-            <>
-              Showing{" "}
-              <span className="font-semibold tabular-nums text-gray-900">{items.length}</span>{" "}
-              of <span className="font-semibold tabular-nums text-gray-900">{total}</span>{" "}
-              {total === 1 ? "entry" : "entries"}
-            </>
-          ) : (
-            "Loading history…"
-          )}
-        </p>
-        {filtersActive && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Clear
-          </Button>
-        )}
-      </div>
+      <ResultCount shown={items.length} total={total} noun="entry" nounPlural="entries" isLoading={!logs.data} loadingLabel="Loading history…" filtersActive={filtersActive} onClear={clearFilters} />
 
       <div className="mt-1 flex min-w-0 flex-col gap-3">
         {logs.isPending && !logs.data && (
-          <div aria-busy="true" aria-label="Loading audit history">
-            {[0, 1, 2].map((i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
+          <ListLoading label="Loading audit history" />
         )}
         {logs.isError && (
           <ErrorCard
@@ -314,55 +266,50 @@ export function AuditPage() {
           />
         )}
         {logs.data && items.length === 0 && (
-          <EmptyState
-            title={filtersActive ? "No entries match these filters" : "No history yet"}
-            description={
-              filtersActive
-                ? `Try another ${emptyHint.join(", ") || "filter"}.`
-                : "Changes across the office will appear here."
-            }
-            actionLabel={filtersActive ? "Clear filters" : undefined}
-            onAction={filtersActive ? clearFilters : undefined}
+          <FilteredEmptyState
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            filteredTitle="No entries match these filters"
+            filteredDescription={`Try another ${emptyHint.join(", ") || "filter"}.`}
+            emptyTitle="No history yet"
+            emptyDescription="Changes across the office will appear here."
           />
         )}
         {items.length > 0 && (
           <>
-            <div
-              aria-busy={logs.isFetching}
-              className="thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&:hover::-webkit-scrollbar-track]:bg-transparent"
-            >
+            <TableShell>
               <TableLoadingBar active={logs.isFetching && items.length > 0} label="Refreshing history" />
-              <table className="w-full min-w-[820px] border-collapse text-left">
+              <table className={cn(TABLE_BASE, "min-w-[820px]")}>
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
+                  <tr className={THEAD_ROW}>
                     <th
                       scope="col"
-                      className="w-px whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tabular-nums tracking-wider text-gray-500"
+                      className={cn(TH_CELL, "w-px tabular-nums")}
                     >
                       #
                     </th>
                     <th
                       scope="col"
-                      className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      className={TH_CELL}
                     >
                       Author
                     </th>
                     <th
                       scope="col"
-                      className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      className={TH_CELL}
                     >
                       Action
                     </th>
                     <th
                       scope="col"
-                      className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      className={TH_CELL}
                     >
                       Area
                     </th>
                     <th
                       scope="col"
                       aria-sort={sortDir === "asc" ? "ascending" : "descending"}
-                      className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      className={TH_CELL}
                     >
                       <SortHeaderButton
                         label="Time"
@@ -373,7 +320,7 @@ export function AuditPage() {
                     </th>
                     <th
                       scope="col"
-                      className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      className={TH_CELL}
                     >
                       Details
                     </th>
@@ -386,7 +333,7 @@ export function AuditPage() {
                     return (
                       <tr
                         key={log.id}
-                        className="border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60"
+                        className={TR_ROW}
                       >
                         <td className="whitespace-nowrap px-3 py-2.5 align-middle">
                           <span className="font-technical text-sm tabular-nums text-gray-500">
@@ -455,46 +402,8 @@ export function AuditPage() {
                   })}
                 </tbody>
               </table>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <RowsSelect
-                value={pageSize}
-                onChange={(n) => {
-                  setPageSize(n);
-                  setPage(1);
-                }}
-              />
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <p className="text-sm text-gray-600">
-                  Page <span className="font-semibold tabular-nums text-gray-900">{page}</span> of{" "}
-                  <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1 || logs.isFetching}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                    Prev
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= pageCount || logs.isFetching}
-                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                    aria-label="Next page"
-                  >
-                    Next
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </TableShell>
+            <PaginationFooter page={page} pageCount={pageCount} isFetching={logs.isFetching} onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => Math.min(pageCount, p + 1))} pageSize={pageSize} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
             <p className="text-xs text-gray-500">
               Older rows may show System. The doer wasn&apos;t recorded at the time.
             </p>

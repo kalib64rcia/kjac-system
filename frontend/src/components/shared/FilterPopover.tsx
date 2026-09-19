@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CardSkeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 export interface FilterOption {
@@ -219,5 +221,175 @@ export function FilterPopover({
         </ScrollArea>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Full-width search input with icon. One shared component — never
+ *  hand-roll the search wrapper per page (placeholder/label stay per page). */
+export function SearchField({ value, onChange, placeholder, label, title }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  label: string;
+  title?: string;
+}) {
+  return (
+    <div className="relative flex-1 sm:min-w-52">
+      <Search
+        size={18}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={label}
+        title={title}
+        className="pl-10"
+      />
+    </div>
+  );
+}
+
+/** "Showing X of Y <noun>" + ghost Clear. Replaces the hand-rolled
+ *  counter row on every list page. */
+export function ResultCount({ shown, total, noun, nounPlural, isLoading, loadingLabel, filtersActive, onClear }: {
+  shown: number;
+  total?: number;
+  noun: string;
+  nounPlural?: string;
+  isLoading: boolean;
+  loadingLabel: string;
+  filtersActive: boolean;
+  onClear: () => void;
+}) {
+  const plural = nounPlural ?? `${noun}s`;
+  return (
+    <div className="flex min-h-[44px] items-center justify-between gap-2">
+      <p className="text-sm text-gray-600" role="status">
+        {isLoading ? (
+          loadingLabel
+        ) : total === undefined ? (
+          <><span className="font-semibold tabular-nums text-gray-900">{shown}</span> {shown === 1 ? noun : plural}</>
+        ) : (
+          <>Showing <span className="font-semibold tabular-nums text-gray-900">{shown}</span> of <span className="font-semibold tabular-nums text-gray-900">{total}</span> {total === 1 ? noun : plural}</>
+        )}
+      </p>
+      {filtersActive && (<Button variant="ghost" size="sm" onClick={onClear}>Clear</Button>)}
+    </div>
+  );
+}
+
+/** Rows-per-page + Page X of Y + Prev/Next. One shared footer —
+ *  never hand-roll pagination per page. */
+export function PaginationFooter({ page, pageCount, isFetching, onPrev, onNext, pageSize, onPageSize }: {
+  page: number;
+  pageCount: number;
+  isFetching: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  pageSize: number;
+  onPageSize: (n: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <RowsSelect value={pageSize} onChange={onPageSize} />
+      <div className="flex items-center justify-between gap-2 sm:justify-end">
+        <p className="text-sm text-gray-600">
+          Page <span className="font-semibold tabular-nums text-gray-900">{page}</span> of <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
+        </p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={page <= 1 || isFetching} onClick={onPrev} aria-label="Previous page">
+            <ChevronLeft size={16} aria-hidden="true" /> Prev
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={page >= pageCount || isFetching} onClick={onNext} aria-label="Next page">
+            Next <ChevronRight size={16} aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** First-load skeleton stack. Shimmer owns first loads only —
+ *  refetches use TableLoadingBar with rows at full strength. */
+export function ListLoading({ label, count = 3 }: { label: string; count?: number }) {
+  return (
+    <div aria-busy="true" aria-label={label}>
+      {Array.from({ length: count }).map((_, i) => (
+        <CardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+/** Scrollable table container. One shared shell — never hand-roll the
+ *  wrapper per page. Table width stays per page (content density differs). */
+export function TableShell({ shadow = false, children }: { shadow?: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white",
+        shadow && "shadow-sm",
+        "[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&:hover::-webkit-scrollbar-track]:bg-transparent",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Shared table primitives — thead row, header cell, body row, body cell. */
+export const THEAD_ROW = "border-b border-gray-200 bg-gray-50";
+export const TH_CELL = "whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500";
+export const TR_ROW = "border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60";
+export const TD_CELL = "min-w-0 px-3 py-2.5 align-middle";
+export const TABLE_BASE = "w-full border-collapse text-left";
+/** Toggle filter chip (switch + label in a bordered chip). One shared
+ *  component — never hand-roll the chip per page. */
+export function SwitchChip({ label, checked, onCheckedChange }: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900">
+      <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={label} />
+      {label}
+    </label>
+  );
+}
+/** Segmented pill tabs for mutually-exclusive views under one header.
+ *  One shared component — never hand-roll tab buttons per page. */
+export function PillTabs<T extends string>({ label, options, value, onPick }: {
+  label: string;
+  options: { id: T; name: string }[];
+  value: T;
+  onPick: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1" role="tablist" aria-label={label}>
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onPick(o.id)}
+            className={cn(
+              "min-h-[44px] cursor-pointer rounded-lg px-3 text-sm font-semibold transition-colors",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              active ? "bg-primary-50 text-primary-700" : "text-gray-500 hover:bg-gray-50",
+            )}
+          >
+            {o.name}
+          </button>
+        );
+      })}
+    </div>
   );
 }

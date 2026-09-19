@@ -27,8 +27,10 @@ async def search_items(
     low_stock: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
+    sort_by: str = Query(default="newest", pattern=r"^(newest|name|quantity)$"),
+    sort_dir: str = Query(default="desc", pattern=r"^(asc|desc)$"),
 ) -> InventoryListResponse:
-    total, rows = await inventory.list_items(db, search, item_type, low_stock, page, limit)
+    total, rows = await inventory.list_items(db, search, item_type, low_stock, page, limit, sort_by, sort_dir)
     return InventoryListResponse(
         total=total, items=[InventoryItemResponse.model_validate(r) for r in rows]
     )

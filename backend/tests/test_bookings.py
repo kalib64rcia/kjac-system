@@ -203,10 +203,38 @@ async def _create(client: AsyncClient, headers: dict | None = None, **overrides)
     return response.json()
 
 
-async def _upload(
-    client: AsyncClient, booking_ref: str, email: str, amount: float = 500.0,
-    headers: dict | None = None, gcash_ref: str | None = None,
+async def _propose(
+    client: AsyncClient, subject: dict, booking: dict, slot: str | None = None,
 ) -> dict:
+    """Admin proposes the booking's own slot (30-min duration keeps tests
+    overlap-free). Temporarily acts as admin, then restores the subject."""
+    prev = subject["value"]
+    subject["value"] = str(ADMIN_UUID)
+    try:
+        response = await client.post(
+            f"/v1/bookings/{booking['id']}/schedule",
+            json={
+                "preferred_date": booking["preferred_date"],
+                "preferred_time": slot or booking["preferred_time"] or "08:00",
+                "duration_minutes": 30,
+            },
+            headers=_admin_headers(),
+        )
+    finally:
+        subject["value"] = prev
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+async def _upload(
+    client: AsyncClient, subject: dict, booking: dict, email: str,
+    amount: float = 500.0, headers: dict | None = None,
+    gcash_ref: str | None = None, slot: str | None = None,
+) -> dict:
+    """Propose-first upload: admin proposes the slot, then the guest uploads
+    the receipt (schedule-before-payment flow)."""
+    await _propose(client, subject, booking, slot)
+    booking_ref = booking["reference_id"]
     response = await client.post(
         f"/v1/bookings/{booking_ref}/payment",
         files={"file": ("receipt.png", _png(), "image/png")},
@@ -223,11 +251,11 @@ async def _upload(
 
 
 async def _confirm(
-    client: AsyncClient, subject: dict, booking_ref: str, email: str
+    client: AsyncClient, subject: dict, booking: dict, email: str
 ) -> None:
-    """Upload as guest, verify as admin, assign tech. Returns confirmed booking."""
+    """Propose, upload as guest, verify as admin, assign tech. Returns confirmed booking."""
     subject["value"] = str(ADMIN_UUID)
-    payment = await _upload(client, booking_ref, email)
+    payment = await _upload(client, subject, booking, email)
     verify = await client.patch(
         f"/v1/admin/payments/{payment['id']}/verify",
         json={"action": "approve"}, headers=_admin_headers(),
@@ -310,8 +338,9 @@ async def test_track_masks_pii(pg_client: tuple[AsyncClient, dict, AsyncSession]
 async def test_payment_amount_must_match_down(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
-    client, _, _ = pg_client
+    client, subject, _ = pg_client
     booking = await _create(client, customer_email="amt@example.com")
+    await _propose(client, subject, booking)
     response = await client.post(
         f"/v1/bookings/{booking['reference_id']}/payment",
         files={"file": ("receipt.png", _png(), "image/png")},
@@ -319,17 +348,29 @@ async def test_payment_amount_must_match_down(
               "payment_method": "gcash", "email": "amt@example.com"},
     )
     assert response.status_code == 400
+    assert "down payment" in response.json()["error"]["message"]
 
 
 async def test_cancel_immediate_full_refund(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
-    client, _, _ = pg_client
+    client, subject, _ = pg_client
     booking = await _create(client, customer_email="cx@example.com")
-    await _upload(client, booking["reference_id"], "cx@example.com")
+    payment = await _upload(client, subject, booking, "cx@example.com")
+    prev = subject["value"]
+    subject["value"] = str(ADMIN_UUID)
+    try:
+        verify = await client.patch(
+            f"/v1/admin/payments/{payment['id']}/verify",
+            json={"action": "approve"}, headers=_admin_headers(),
+        )
+    finally:
+        subject["value"] = prev
+    assert verify.status_code == 200, verify.text
     response = await client.post(
         f"/v1/bookings/{booking['id']}/cancel",
-        json={"reason": "Changed my mind", "email": "cx@example.com"},
+        json={"reason": "Changed my mind", "email": "cx@example.com",
+              "refund_to_number": "09123456789", "refund_to_name": "CX Test"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -338,12 +379,28 @@ async def test_cancel_immediate_full_refund(
     assert body["refund_amount"] == 500.0
 
 
+async def test_cancel_while_under_review_answers_409(
+    pg_client: tuple[AsyncClient, dict, AsyncSession]
+) -> None:
+    """No verdict, no cancel: pending payment blocks cancel on either path."""
+    client, subject, _ = pg_client
+    booking = await _create(client, customer_email="lock@example.com")
+    await _upload(client, subject, booking, "lock@example.com")
+    response = await client.post(
+        f"/v1/bookings/{booking['id']}/cancel",
+        json={"reason": "Too soon", "email": "lock@example.com",
+              "refund_to_number": "09123456789", "refund_to_name": "Lock Test"},
+    )
+    assert response.status_code == 409
+    assert "under review" in response.json()["error"]["message"]
+
+
 async def test_cancel_same_day_needs_approval(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
     client, subject, session = pg_client
     booking = await _create(client, customer_email="sd@example.com")
-    await _confirm(client, subject, booking["reference_id"], "sd@example.com")
+    await _confirm(client, subject, booking, "sd@example.com")
     stored = await session.get(Booking, booking["id"])
     assert stored is not None
     stored.preferred_date = datetime.now(MANILA_TZ).date()
@@ -351,7 +408,8 @@ async def test_cancel_same_day_needs_approval(
     session.expire_all()
     response = await client.post(
         f"/v1/bookings/{booking['id']}/cancel",
-        json={"reason": "Emergency", "email": "sd@example.com"},
+        json={"reason": "Emergency", "email": "sd@example.com",
+              "refund_to_number": "09123456789", "refund_to_name": "SD Test"},
     )
     assert response.status_code == 200
     assert response.json()["refund_status"] == "processing"
@@ -362,7 +420,7 @@ async def test_cancel_late_denied(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="late@example.com")
-    await _confirm(client, subject, booking["reference_id"], "late@example.com")
+    await _confirm(client, subject, booking, "late@example.com")
     subject["value"] = str(TECH_UUID)
     tech_headers = {"Authorization": "Bearer tech-token"}
     en_route = await client.patch(
@@ -372,7 +430,8 @@ async def test_cancel_late_denied(
     assert en_route.status_code == 200
     response = await client.post(
         f"/v1/bookings/{booking['id']}/cancel",
-        json={"reason": "Too late", "email": "late@example.com"},
+        json={"reason": "Too late", "email": "late@example.com",
+              "refund_to_number": "09123456789", "refund_to_name": "Late Test"},
     )
     assert response.status_code == 200
     assert response.json()["refund_status"] == "denied"
@@ -383,7 +442,7 @@ async def test_tech_progression(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="tech@example.com")
-    await _confirm(client, subject, booking["reference_id"], "tech@example.com")
+    await _confirm(client, subject, booking, "tech@example.com")
     subject["value"] = str(TECH_UUID)
     tech_headers = {"Authorization": "Bearer tech-token"}
 
@@ -419,7 +478,7 @@ async def test_assign_capacity_guard(
     for i, slot in enumerate(["08:00", "09:00", "10:00", "11:00"]):
         booking = await _create(client, customer_email=f"cap{i}@example.com",
                                 preferred_date=day, preferred_time=slot)
-        await _upload(client, booking["reference_id"], f"cap{i}@example.com")
+        await _upload(client, subject, booking, f"cap{i}@example.com")
         ids.append(booking["id"])
     subject["value"] = str(ADMIN_UUID)
     for booking_id in ids:
@@ -453,7 +512,7 @@ async def test_assign_capacity_guard(
 async def test_assign_requires_verified_payment(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
-    """Assign before payment is refused: submitted and pending cannot take
+    """Assign before payment is refused: submitted and scheduled cannot take
     a team, so ASSIGNED always means paid (no assigned-but-unpaid rows)."""
     client, subject, _ = pg_client
     submitted = await _create(client, customer_email="nopay1@example.com")
@@ -463,7 +522,7 @@ async def test_assign_requires_verified_payment(
         json={"technician_id": 2}, headers=_admin_headers(),
     )
     assert denied_submitted.status_code == 409
-    await _upload(client, submitted["reference_id"], "nopay1@example.com")
+    await _upload(client, subject, submitted, "nopay1@example.com")
     denied_pending = await client.patch(
         f"/v1/admin/bookings/{submitted['id']}/assign",
         json={"technician_id": 2}, headers=_admin_headers(),
@@ -476,7 +535,7 @@ async def test_reschedule_approve_flow(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="rs@example.com")
-    await _confirm(client, subject, booking["reference_id"], "rs@example.com")
+    await _confirm(client, subject, booking, "rs@example.com")
     new_day, _ = _future(6)
     first = await client.post(
         f"/v1/bookings/{booking['id']}/reschedule",
@@ -501,7 +560,7 @@ async def test_reschedule_max_two(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="rs2@example.com")
-    await _confirm(client, subject, booking["reference_id"], "rs2@example.com")
+    await _confirm(client, subject, booking, "rs2@example.com")
     for offset in (6, 7):
         new_day, _ = _future(offset)
         response = await client.post(
@@ -565,9 +624,9 @@ async def test_my_bookings_pagination(
 async def test_receipt_stream_owner_only(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
-    client, _, _ = pg_client
+    client, subject, _ = pg_client
     booking = await _create(client, customer_email="rc@example.com")
-    payment = await _upload(client, booking["reference_id"], "rc@example.com")
+    payment = await _upload(client, subject, booking, "rc@example.com")
     ok = await client.get(
         f"/v1/payments/{payment['uuid']}/receipt", params={"email": "rc@example.com"}
     )
@@ -583,9 +642,9 @@ async def test_receipt_enumeration_answers_404(
     pg_client: tuple[AsyncClient, dict, AsyncSession]
 ) -> None:
     """Sequential-id probing and foreign-uuid guessing reveal nothing (uniform 404)."""
-    client, _, _ = pg_client
+    client, subject, _ = pg_client
     booking = await _create(client, customer_email="enum@example.com")
-    payment = await _upload(client, booking["reference_id"], "enum@example.com")
+    payment = await _upload(client, subject, booking, "enum@example.com")
     for probe in ("1", "2", str(payment["id"]), "00000000-0000-0000-0000-000000000000"):
         response = await client.get(
             f"/v1/payments/{probe}/receipt", params={"email": "enum@example.com"}
@@ -766,11 +825,11 @@ async def test_slots_availability_states(
     assert (await states())["10:00"] == "open"
     first = await _create(client, preferred_date=day, preferred_time="10:00",
                           customer_email="seat1@example.com")
-    await _confirm(client, subject, first["reference_id"], "seat1@example.com")
+    await _confirm(client, subject, first, "seat1@example.com")
     assert (await states())["10:00"] == "low"
     second = await _create(client, preferred_date=day, preferred_time="10:00",
                            customer_email="seat2@example.com")
-    await _confirm(client, subject, second["reference_id"], "seat2@example.com")
+    await _confirm(client, subject, second, "seat2@example.com")
     assert (await states())["10:00"] == "full"
 
 
@@ -798,10 +857,10 @@ async def test_booking_guard_full_slot_409(
     day, _ = _future(2)
     first = await _create(client, preferred_date=day, preferred_time="11:00",
                           customer_email="g1@example.com")
-    await _confirm(client, subject, first["reference_id"], "g1@example.com")
+    await _confirm(client, subject, first, "g1@example.com")
     second = await _create(client, preferred_date=day, preferred_time="11:00",
                            customer_email="g2@example.com")
-    await _confirm(client, subject, second["reference_id"], "g2@example.com")
+    await _confirm(client, subject, second, "g2@example.com")
     response = await client.post(
         "/v1/bookings", json=_payload(preferred_date=day, preferred_time="11:00",
                                       customer_email="g3@example.com")
@@ -825,7 +884,7 @@ async def test_booking_guard_race_last_seat(
     day, slot = _future(2)
     taken = await _create(client, preferred_date=day, preferred_time=slot,
                           customer_email="racer0@example.com")
-    await _confirm(client, subject, taken["reference_id"], "racer0@example.com")
+    await _confirm(client, subject, taken, "racer0@example.com")
     await session.close()
 
     engine = create_async_engine(TEST_DB_URL)
@@ -941,10 +1000,10 @@ async def test_slot_hold_full_slot_409(
     day, _ = _future(2)
     first = await _create(client, preferred_date=day, preferred_time="14:00",
                           customer_email="f1@example.com")
-    await _confirm(client, subject, first["reference_id"], "f1@example.com")
+    await _confirm(client, subject, first, "f1@example.com")
     second = await _create(client, preferred_date=day, preferred_time="14:00",
                            customer_email="f2@example.com")
-    await _confirm(client, subject, second["reference_id"], "f2@example.com")
+    await _confirm(client, subject, second, "f2@example.com")
     hold = await client.post(
         "/v1/slots/holds",
         json={"preferred_date": day, "preferred_time": "14:00"},
@@ -965,7 +1024,7 @@ async def test_flex_booking_stores_window(
         client, preferred_date=day, preferred_time="08:00",
         flex_window="morning", customer_email="flex@example.com",
     )
-    await _confirm(client, subject, booking["reference_id"], "flex@example.com")
+    await _confirm(client, subject, booking, "flex@example.com")
     row = await session.get(Booking, booking["id"])
     assert row is not None and row.flex_window == "morning"
 
@@ -1007,10 +1066,10 @@ async def test_flex_window_full_409(
     day, _ = _future(2)
     first = await _create(client, preferred_date=day, preferred_time="08:00",
                           flex_window="morning", customer_email="fm1@example.com")
-    await _confirm(client, subject, first["reference_id"], "fm1@example.com")
+    await _confirm(client, subject, first, "fm1@example.com")
     second = await _create(client, preferred_date=day, preferred_time="08:00",
                            flex_window="morning", customer_email="fm2@example.com")
-    await _confirm(client, subject, second["reference_id"], "fm2@example.com")
+    await _confirm(client, subject, second, "fm2@example.com")
     third = await client.post(
         "/v1/bookings",
         json=_payload(preferred_date=day, preferred_time="08:00",
@@ -1248,7 +1307,7 @@ async def test_admin_bookings_shows_assignment_and_payment(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="ap@example.com")
-    await _confirm(client, subject, booking["reference_id"], "ap@example.com")
+    await _confirm(client, subject, booking, "ap@example.com")
     listing = await client.get("/v1/admin/bookings", headers=_admin_headers())
     assert listing.status_code == 200
     row = listing.json()["items"][0]
@@ -1266,7 +1325,7 @@ async def test_audit_logs_record_actor_and_diff(
 ) -> None:
     client, subject, session = pg_client
     booking = await _create(client, customer_email="actor@example.com")
-    await _confirm(client, subject, booking["reference_id"], "actor@example.com")
+    await _confirm(client, subject, booking, "actor@example.com")
     admin_id = (
         await session.execute(select(User.id).where(User.uuid == ADMIN_UUID))
     ).scalar_one()
@@ -1298,7 +1357,7 @@ async def test_audit_feed_enriched_sentences(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="story@example.com")
-    await _confirm(client, subject, booking["reference_id"], "story@example.com")
+    await _confirm(client, subject, booking, "story@example.com")
 
     trail = await client.get(
         "/v1/admin/audit-logs",
@@ -1321,7 +1380,7 @@ async def test_audit_search_names_refs_and_ids(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="findme@example.com")
-    await _confirm(client, subject, booking["reference_id"], "findme@example.com")
+    await _confirm(client, subject, booking, "findme@example.com")
 
     by_ref = await client.get(
         "/v1/admin/audit-logs",
@@ -1355,7 +1414,7 @@ async def test_audit_feed_filters_summary_and_csv(
 ) -> None:
     client, subject, _ = pg_client
     booking = await _create(client, customer_email="filter@example.com")
-    await _confirm(client, subject, booking["reference_id"], "filter@example.com")
+    await _confirm(client, subject, booking, "filter@example.com")
 
     trail = await client.get(
         "/v1/admin/audit-logs",
@@ -1419,9 +1478,9 @@ async def test_concurrent_verify_single_winner(
 
     from app.services import payment_service
 
-    client, _subject, session = pg_client
+    client, subject, session = pg_client
     booking = await _create(client, customer_email="race@example.com")
-    payment = await _upload(client, booking["reference_id"], "race@example.com")
+    payment = await _upload(client, subject, booking, "race@example.com")
     admin_id = (
         await session.execute(select(User.id).where(User.uuid == ADMIN_UUID))
     ).scalar_one()
@@ -1455,7 +1514,12 @@ async def test_concurrent_cancel_single_refund(    pg_client: tuple[AsyncClient,
     client, subject, session = pg_client
     subject["value"] = str(ADMIN_UUID)
     booking = await _create(client, customer_email="race2@example.com")
-    await _upload(client, booking["reference_id"], "race2@example.com")
+    payment = await _upload(client, subject, booking, "race2@example.com")
+    verify = await client.patch(
+        f"/v1/admin/payments/{payment['id']}/verify",
+        json={"action": "approve"}, headers=_admin_headers(),
+    )
+    assert verify.status_code == 200, verify.text
     admin = (
         await session.execute(select(User).where(User.uuid == ADMIN_UUID))
     ).scalar_one()
@@ -1468,8 +1532,12 @@ async def test_concurrent_cancel_single_refund(    pg_client: tuple[AsyncClient,
             b1 = await s1.get(Booking, booking["id"])
             b2 = await s2.get(Booking, booking["id"])
             results = await asyncio.gather(
-                booking_service.cancel_booking(s1, b1, admin, "first"),
-                booking_service.cancel_booking(s2, b2, admin, "second"),
+                booking_service.cancel_booking(
+                    s1, b1, admin, "first", "09123456789", "Race Test",
+                ),
+                booking_service.cancel_booking(
+                    s2, b2, admin, "second", "09123456789", "Race Test",
+                ),
                 return_exceptions=True,
             )
         async with factory() as check:
@@ -1494,8 +1562,8 @@ async def test_verify_reused_receipt_answers_409(
                             preferred_time="08:00")
     second = await _create(client, customer_email="dup-b@example.com",
                            preferred_time="09:00")
-    pay_a = await _upload(client, first["reference_id"], "dup-a@example.com", gcash_ref="DUP-REF-1")
-    pay_b = await _upload(client, second["reference_id"], "dup-b@example.com", gcash_ref="DUP-REF-1")
+    pay_a = await _upload(client, subject, first, "dup-a@example.com", gcash_ref="DUP-REF-1")
+    pay_b = await _upload(client, subject, second, "dup-b@example.com", gcash_ref="DUP-REF-1")
 
     ok = await client.patch(
         f"/v1/admin/payments/{pay_a['id']}/verify",

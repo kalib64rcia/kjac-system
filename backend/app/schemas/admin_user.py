@@ -1,5 +1,7 @@
 """Admin user management schemas + service + endpoints."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,6 +19,7 @@ class AdminUserResponse(BaseModel):
     can_approve_technicians: bool = False
     can_execute_refunds: bool = False
     can_view_audit: bool = False
+    created_at: datetime | None = None
 
 
 class AdminUserListResponse(BaseModel):

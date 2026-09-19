@@ -239,6 +239,15 @@ def _public_seats_left(*, capacity: int, booked: int, holds: int, reserve: int) 
     return max(0, capacity - booked - holds - reserve)
 
 
+async def _service_duration_minutes(db: AsyncSession, booking: Booking) -> int | None:
+    """Service duration without touching the lazy `booking.service`
+    relationship (raises AttributeError on detached/expired rows)."""
+    if booking.service_id is None:
+        return None
+    svc = await db.get(Service, booking.service_id)
+    return svc.estimated_duration_minutes if svc else None
+
+
 async def _has_time_overlap(
     db: AsyncSession, 
     booking_date: date, 
@@ -278,7 +287,7 @@ async def _has_time_overlap(
             
         # Get existing booking's time range
         existing_start = booking.preferred_time
-        existing_duration = booking.estimated_duration_minutes or (booking.service.estimated_duration_minutes if booking.service else None) or 60
+        existing_duration = booking.estimated_duration_minutes or await _service_duration_minutes(db, booking) or 60
         existing_start_dt = datetime.combine(booking_date, existing_start)
         existing_end_dt = existing_start_dt + timedelta(minutes=existing_duration)
         existing_end_time = existing_end_dt.time()
@@ -454,7 +463,7 @@ async def set_booking_slot(
         raise AppError("BOOKING_003", "Cannot change a closed booking.", 409)
     
     # Check for time overlap before assigning
-    check_duration = duration_minutes or booking.estimated_duration_minutes or (booking.service.estimated_duration_minutes if booking.service else None) or 60
+    check_duration = duration_minutes or booking.estimated_duration_minutes or await _service_duration_minutes(db, booking) or 60
     has_overlap = await _has_time_overlap(db, day, slot, check_duration, exclude_booking_id=booking.id)
     if has_overlap:
         raise AppError("BOOKING_007", "Time slot overlaps with existing booking.", 409)
@@ -503,20 +512,31 @@ async def _consume_hold(
 async def check_create_rate_limit(
     db: AsyncSession, user: User | None, email: str
 ) -> None:
-    window = manila_now().astimezone(UTC) - timedelta(
-        minutes=settings.booking_rate_limit_minutes
-    )
+    # Admin-editable DB settings win; static server config is the fallback.
+    try:
+        limit_count = int(await _setting(db, "booking_rate_limit_count", ""))
+        if limit_count <= 0:
+            raise ValueError("non-positive")
+    except ValueError:
+        limit_count = settings.booking_rate_limit_count
+    try:
+        limit_minutes = int(await _setting(db, "booking_rate_limit_minutes", ""))
+        if limit_minutes <= 0:
+            raise ValueError("non-positive")
+    except ValueError:
+        limit_minutes = settings.booking_rate_limit_minutes
+    window = manila_now().astimezone(UTC) - timedelta(minutes=limit_minutes)
     query = select(func.count(Booking.id)).where(Booking.created_at >= window)
     if user is not None:
         query = query.where(Booking.customer_id == user.id)
     else:
         query = query.where(func.lower(Booking.customer_email) == email.lower())
     count = (await db.execute(query)).scalar_one()
-    if count >= settings.booking_rate_limit_count:
+    if count >= limit_count:
         raise AppError(
             "BOOKING_004",
-            f"Maximum {settings.booking_rate_limit_count} bookings per "
-            f"{settings.booking_rate_limit_minutes} minutes.",
+            f"Maximum {limit_count} bookings per "
+            f"{limit_minutes} minutes.",
             429,
         )
 
@@ -741,6 +761,28 @@ async def track_booking(db: AsyncSession, reference_id: str, email: str) -> dict
         if tech is not None:
             tech_name = f"{tech.first_name} {tech.last_name}"
             tech_rating = float(tech.average_rating or 0)
+    payment = await _latest_payment(db, booking.id)
+    refund_status = refund_amount = refund_to_masked = payout_ref = None
+    payment_status = payment.status if payment is not None else None
+    rejection_reason = (
+        payment.rejection_reason
+        if payment is not None and payment.status == "rejected"
+        else None
+    )
+    if booking.status in ("cancelled", "expired"):
+        r = await db.execute(
+            select(Refund)
+            .where(Refund.booking_id == booking.id)
+            .order_by(Refund.id.desc())
+            .limit(1)
+        )
+        latest_refund = r.scalar_one_or_none()
+        if latest_refund is not None:
+            refund_status = latest_refund.status
+            refund_amount = float(latest_refund.refund_amount)
+            if latest_refund.refund_to_number:
+                refund_to_masked = mask_phone(latest_refund.refund_to_number)
+            payout_ref = latest_refund.payout_reference_number
     return {
         "booking_id": booking.id,
         "reference_id": booking.reference_id,
@@ -758,6 +800,13 @@ async def track_booking(db: AsyncSession, reference_id: str, email: str) -> dict
         "down_payment_amount": float(booking.down_payment_amount),
         "expires_at": booking.expires_at.isoformat() if booking.expires_at else None,
         "timeline": await _timeline(db, booking.id),
+        "has_payment": payment is not None,
+        "payment_status": payment_status,
+        "rejection_reason": rejection_reason,
+        "refund_status": refund_status,
+        "refund_amount": refund_amount,
+        "refund_to_masked": refund_to_masked,
+        "payout_reference_number": payout_ref,
     }
 
 
@@ -783,7 +832,8 @@ async def _is_dispatched(db: AsyncSession, booking_id: int) -> bool:
 
 
 async def cancel_booking(
-    db: AsyncSession, booking: Booking, user: User | None, reason: str
+    db: AsyncSession, booking: Booking, user: User | None, reason: str,
+    refund_to_number: str | None = None, refund_to_name: str | None = None,
 ) -> dict:
     if booking.status in TERMINAL_STATUSES:
         raise AppError("BOOKING_003", f"Cannot cancel a {booking.status} booking.", 409)
@@ -791,8 +841,52 @@ async def cancel_booking(
     now = manila_now()
     preferred_day = booking.preferred_date
     dispatched = await _is_dispatched(db, booking.id) or booking.status == "ongoing"
-    payment = await _latest_payment(db, booking.id)
+    # No verdict, no cancel, either side: a waiting receipt must be
+    # verified or rejected first so refunds never judge unjudged money.
+    under_review = await db.execute(
+        select(Payment.id)
+        .where(
+            Payment.booking_id == booking.id,
+            Payment.status == "pending",
+        )
+        .limit(1)
+    )
+    if under_review.scalar_one_or_none() is not None:
+        raise AppError(
+            "BOOKING_003",
+            "Payment under review. Wait for the review result.",
+            409,
+        )
+    # Rejected receipts are not money: only pending or verified counts as paid.
+    # Rejected receipts are not money: only pending or verified counts as paid.
+    valid_result = await db.execute(
+        select(Payment)
+        .where(
+            Payment.booking_id == booking.id,
+            Payment.status.in_(("pending", "verified")),
+        )
+        .order_by(Payment.id.desc())
+        .limit(1)
+    )
+    payment = valid_result.scalar_one_or_none()
     paid = payment is not None
+
+    if paid:
+        # Target optional at cancel (office may not have it yet); required
+        # before payout. Normalize when provided so ledger stays clean.
+        if refund_to_number or refund_to_name:
+            digits = re.sub(r"\D", "", refund_to_number or "")
+            if not re.fullmatch(r"(09\d{9}|639\d{9})", digits):
+                raise AppError(
+                    "VAL_001",
+                    "Enter active GCash number for refund.",
+                    422,
+                )
+            refund_to_number = digits
+            refund_to_name = (refund_to_name or "").strip() or None
+        else:
+            refund_to_number = None
+            refund_to_name = None
 
     if booking.status in ("submitted", "pending"):
         tier = "immediate"
@@ -838,6 +932,8 @@ async def cancel_booking(
                     requested_by_user_id=actor_id,
                     refund_amount=payment.amount, refund_type="full",
                     reason=reason, status="approved",
+                    refund_to_number=refund_to_number,
+                    refund_to_name=refund_to_name,
                 )
             )
             refund_status, refund_amount = "approved", float(payment.amount)
@@ -848,6 +944,8 @@ async def cancel_booking(
                     requested_by_user_id=actor_id,
                     refund_amount=payment.amount, refund_type="full",
                     reason=reason, status="processing",
+                    refund_to_number=refund_to_number,
+                    refund_to_name=refund_to_name,
                 )
             )
             refund_status, refund_amount = "processing", float(payment.amount)
@@ -858,6 +956,8 @@ async def cancel_booking(
                     requested_by_user_id=actor_id,
                     refund_amount=0, refund_type="none",
                     reason=reason, status="denied", denial_reason="Late cancellation",
+                    refund_to_number=refund_to_number,
+                    refund_to_name=refund_to_name,
                 )
             )
             refund_status, refund_amount = "denied", 0.0
@@ -897,9 +997,9 @@ async def request_reschedule(
     new_time: time,
     reason: str,
 ) -> RescheduleRequest:
-    """Confirmed-only, ≥24h notice, max 2 requests per booking (CONTRACTS U4)."""
-    if booking.status != "confirmed":
-        raise AppError("BOOKING_003", "Only confirmed bookings can be rescheduled.", 409)
+    """Confirmed/assigned-only, ≥24h notice, max 2 requests per booking (CONTRACTS U4)."""
+    if booking.status not in ("confirmed", "assigned"):
+        raise AppError("BOOKING_003", "Only confirmed or assigned bookings can be rescheduled.", 409)
     await validate_slot(db, new_date, new_time)
     current_start = datetime.combine(
         booking.preferred_date, booking.preferred_time
@@ -992,10 +1092,16 @@ async def assign_technician(
         raise AppError("BOOKING_005", "User is not an available technician.", 400)
     if booking.status in TERMINAL_STATUSES:
         raise AppError("BOOKING_003", "Cannot assign to a closed booking.", 409)
+    if booking.status in ("submitted", "proposed", "scheduled", "pending"):
+        raise AppError(
+            "BOOKING_005",
+            "Technician can only be assigned after payment is verified.",
+            409,
+        )
     
     # Check for time overlap before assigning (only if booking has a time slot)
     if booking.preferred_date and booking.preferred_time:
-        duration = booking.estimated_duration_minutes or (booking.service.estimated_duration_minutes if booking.service else None) or 60
+        duration = booking.estimated_duration_minutes or await _service_duration_minutes(db, booking) or 60
         has_overlap = await _has_time_overlap(
             db, 
             booking.preferred_date, 
@@ -1057,10 +1163,10 @@ async def schedule_booking(
     db: AsyncSession, booking: Booking, preferred_date: date, preferred_time: time,
     duration_minutes: int | None = None
 ) -> Booking:
-    """Admin places booking on schedule (confirmed → scheduled status).
-    
-    Transitions booking from 'confirmed' to 'scheduled' status. Performs conflict
-    detection to prevent overlapping time slots. Sends scheduled notification email.
+    """Admin proposes schedule for a submitted booking (submitted to proposed).
+
+    Performs conflict detection to prevent overlapping time slots.
+    Sends scheduled notification email.
     
     Args:
         db: Database session
@@ -1087,7 +1193,7 @@ async def schedule_booking(
     await validate_slot(db, preferred_date, preferred_time)
     
     # Check for time overlap with other scheduled/assigned bookings
-    check_duration = duration_minutes or booking.estimated_duration_minutes or (booking.service.estimated_duration_minutes if booking.service else None) or 60
+    check_duration = duration_minutes or booking.estimated_duration_minutes or await _service_duration_minutes(db, booking) or 60
     has_overlap = await _has_time_overlap(
         db, 
         preferred_date, 
@@ -1126,6 +1232,13 @@ async def schedule_booking(
     booking.preferred_time = preferred_time
     booking.proposed_at = now
     booking.flex_window = None
+    # Pay deadline equals the proposed start itself, no buffer.
+    # Countdown ticks to this start. Past start with no upload expires.
+    try:
+        manila_start = datetime.combine(preferred_date, preferred_time).replace(tzinfo=MANILA_TZ)
+        booking.expires_at = manila_start.astimezone(UTC)
+    except Exception:
+        booking.expires_at = now + timedelta(hours=3)
     
     if duration_minutes is not None:
         booking.estimated_duration_minutes = duration_minutes
@@ -1170,7 +1283,7 @@ async def schedule_booking(
 async def tech_update_status(
     db: AsyncSession, booking: Booking, marker: str, actor: User
 ) -> Booking:
-    """Strict progression: confirmed→on_way→arrived→ongoing→completed.
+    """Strict progression: confirmed/assigned→on_way→arrived→ongoing→completed.
 
     on_way/arrived keep booking.status (appointment meaning per C5 fix);
     ongoing/completed move it. Markers are history notes for dispatch checks.
@@ -1184,7 +1297,7 @@ async def tech_update_status(
     last = markers[-1] if markers else None
     if booking.status == "ongoing":
         expected: str | None = "completed"
-    elif booking.status == "confirmed":
+    elif booking.status in ("confirmed", "assigned"):
         expected = {"__none__": "on_the_way", "on_the_way": "arrived",
                     "arrived": "ongoing"}.get(last or "__none__")
     else:
@@ -1225,11 +1338,11 @@ async def tech_update_status(
 
 
 async def expire_due_bookings(db: AsyncSession) -> int:
-    """Flip submitted bookings past expires_at to expired. Returns count."""
+    """Flip submitted and proposed bookings past expires_at to expired. Returns count."""
     result = await db.execute(
         Booking.__table__.update()
         .where(
-            Booking.status == "submitted",
+            Booking.status.in_(["submitted", "proposed"]),
             Booking.expires_at.is_not(None),
             Booking.expires_at < datetime.now(UTC),
         )
@@ -1408,6 +1521,15 @@ async def list_admin_bookings(
     payment_map: dict[int, Payment] = {}
     for p in payment_rows:
         payment_map.setdefault(p.booking_id, p)
+    refund_map: dict[int, Refund] = {}
+    for r in (
+        await db.execute(
+            select(Refund)
+            .where(Refund.booking_id.in_(booking_ids))
+            .order_by(Refund.booking_id, Refund.id.desc())
+        )
+    ).scalars():
+        refund_map.setdefault(r.booking_id, r)
     reschedule_map = {
         r.booking_id: r
         for r in (
@@ -1440,6 +1562,7 @@ async def list_admin_bookings(
         tech = tech_map.get(b.technician_id) if b.technician_id else None
         payment = payment_map.get(b.id)
         reschedule = reschedule_map.get(b.id)
+        refund = refund_map.get(b.id)
         address_parts = [
             b.street_address,
             barangay_map.get(b.barangay_code or ""),
@@ -1520,6 +1643,16 @@ async def list_admin_bookings(
                 "timeline": timeline_map.get(b.id, []),
                 "created_at": b.created_at,
                 "updated_at": b.updated_at,
+                "cancellation_reason": b.cancellation_reason,
+                "refund": (
+                    {
+                        "status": refund.status,
+                        "refund_amount": float(refund.refund_amount),
+                        "refund_to_number": refund.refund_to_number,
+                        "refund_to_name": refund.refund_to_name,
+                    }
+                    if refund else None
+                ),
             }
         )
     return total, items, summary

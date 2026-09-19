@@ -38,6 +38,8 @@ NOTIFICATION_TYPES = (
     "waitlist_joined",
     "booking_reminder_tomorrow",
     "payment_reminder",
+    "booking_scheduled",
+    "booking_schedule_withdrawn",
 )
 
 

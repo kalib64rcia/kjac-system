@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "@fullcalendar/react/skeleton.css";
+@import "@fullcalendar/react/themes/monarch/theme.css";
+@import "@fullcalendar/react/themes/monarch/palettes/blue.css";
 
 /* KJAC design tokens — exact values from docs/design/DESIGN.md (light theme only). */
 @theme {
@@ -275,6 +278,85 @@
     width: 0;
     height: 0;
   }
+}
+
+/* FullCalendar Monarch theme — KJAC bridge. The palette file above sets
+ * --fc-monarch-* defaults on :root; here we re-point them at KJAC @theme
+ * tokens (sky-blue primary, gray neutrals) on the same :root level so the
+ * calendar inherits the app theme. Later in file = wins by source order.
+ * Unlayered on purpose: must win over the imported theme stylesheet. */
+:root {
+
+  /* primary actions (today button, event chips, now marker accents) */
+  --fc-monarch-primary: #38b6ff;
+  --fc-monarch-primary-foreground: #ffffff;
+  --fc-monarch-primary-over: #1aa9ff;
+  --fc-monarch-primary-down: #0090e6;
+
+  /* secondary surfaces (active view button lives in --selected below) */
+  --fc-monarch-secondary: #e6f7ff;
+  --fc-monarch-secondary-foreground: #005fa3;
+  --fc-monarch-secondary-over: #b3e5ff;
+  --fc-monarch-secondary-down: #80d4ff;
+
+  /* calendar content */
+  --fc-monarch-event: #38b6ff;
+  --fc-monarch-event-contrast: #ffffff;
+  --fc-monarch-highlight: #38b6ff26;
+  --fc-monarch-now: #dc2626;
+
+  /* controls: active view button + focus ring */
+  --fc-monarch-selected: #0077cc;
+  --fc-monarch-selected-foreground: #ffffff;
+  --fc-monarch-selected-over: #005fa3;
+  --fc-monarch-selected-down: #004d85;
+  --fc-monarch-outline: #0090e6;
+
+  /* neutrals */
+  --fc-monarch-background: #ffffff;
+  --fc-monarch-foreground: #111827;
+  --fc-monarch-border: #e5e7eb;
+  --fc-monarch-muted-foreground: #6b7280;
+}
+
+/* Single-row FullCalendar header must wrap on narrow screens. */
+.fc-header-toolbar {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+
+/* KJAC shape/cursor bridge: Monarch ships pill buttons with default cursor.
+ * Stable .fc-* classes (public API) beat the theme's hashed single-class
+ * selectors, so no !important is needed. Matches system buttons:
+ * rounded-lg, pointer cursor, 36px sm height, semibold text. */
+.fc {
+  font-family: var(--font-primary);
+}
+
+.fc .fc-button {
+  cursor: pointer;
+  border-radius: 0.5rem;
+  min-height: 36px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.fc .fc-button-group {
+  gap: 0.25rem;
+}
+
+.fc .fc-button-group .fc-button {
+  border-radius: 0.5rem;
+  margin: 0;
+}
+
+.fc .fc-button:disabled {
+  cursor: not-allowed;
+}
+
+/* Click affordance on events (drag uses its own grabbing cursor). */
+.fc .fc-event {
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {

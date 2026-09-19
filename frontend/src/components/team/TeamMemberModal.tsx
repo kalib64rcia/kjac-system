@@ -347,7 +347,7 @@ export function TeamMemberModal({ member, onClose }: TeamMemberModalProps) {
 
   return (
     <Sheet open={!!member} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent label={member.status === "pending_approval" ? "Review Application" : `Edit: ${fullName}`} onClose={onClose}>
+      <SheetContent label={member.status === "pending_approval" ? "Review Application" : `Edit: ${fullName}`} side="right" onClose={onClose}>
         <SheetHeader>
           <SheetTitle>{member.status === "pending_approval" ? "Review Application" : `Edit: ${fullName}`}</SheetTitle>
           <SheetCloseButton onClose={onClose} />

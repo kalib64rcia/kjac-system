@@ -35,29 +35,6 @@ export interface BookingCreate {
   flex_window?: string | null;
 }
 
-/** Public availability: states only, never counts (privacy P1–P3). */
-export type SlotState = "open" | "low" | "full" | "closed";
-
-export interface SlotAvailability {
-  time: string; // HH:MM
-  state: SlotState;
-}
-
-export interface DayAvailability {
-  date: string; // YYYY-MM-DD
-  slots: SlotAvailability[];
-}
-
-export interface AvailabilityResponse {
-  days: DayAvailability[];
-}
-
-export interface SlotHold {
-  reference: string;
-  hold_token: string;
-  expires_at: string;
-}
-
 export interface BookingResponse {
   id: number;
   reference_id: string;
@@ -100,6 +77,13 @@ export interface TrackBookingResponse {
   down_payment_amount: number;
   expires_at: string | null;
   timeline: TimelineItem[];
+  has_payment?: boolean;
+  payment_status?: string | null;
+  rejection_reason?: string | null;
+  refund_status?: string | null;
+  refund_amount?: number | null;
+  refund_to_masked?: string | null;
+  payout_reference_number?: string | null;
 }
 
 export interface CancelResponse {
@@ -140,6 +124,13 @@ export interface AdminBookingReschedule {
   reason: string;
 }
 
+export interface AdminBookingRefund {
+  status: string;
+  refund_amount: number;
+  refund_to_number?: string | null;
+  refund_to_name?: string | null;
+}
+
 export interface AdminBooking extends BookingResponse {
   technician_id: number | null;
   technician?: AdminBookingTech | null;
@@ -162,6 +153,8 @@ export interface AdminBooking extends BookingResponse {
   timeline?: TimelineItem[];
   created_at?: string | null;
   updated_at?: string | null;
+  cancellation_reason?: string | null;
+  refund?: AdminBookingRefund | null;
   flex_window?: string | null;
   dispatch_order?: number | null;
 }
@@ -183,24 +176,6 @@ export interface AdminBookingParams {
   limit?: number;
   sort_by?: "newest" | "schedule" | "customer";
   sort_dir?: "asc" | "desc";
-}
-
-export interface VacancySlot {
-  time: string;
-  state: SlotState;
-  capacity: number;
-  booked: number;
-  holds: number;
-  left: number;
-}
-
-export interface VacancyDay {
-  date: string;
-  slots: VacancySlot[];
-}
-
-export interface VacancyResponse {
-  days: VacancyDay[];
 }
 
 export interface WaitlistEntry {

@@ -85,6 +85,13 @@ class TrackResponse(BaseModel):
     down_payment_amount: float
     expires_at: datetime | None = None
     timeline: list[dict] = Field(default_factory=list)
+    has_payment: bool = False
+    payment_status: str | None = None
+    rejection_reason: str | None = None
+    refund_status: str | None = None
+    refund_amount: float | None = None
+    refund_to_masked: str | None = None
+    payout_reference_number: str | None = None
 
 
 class BookingListResponse(BaseModel):
@@ -95,6 +102,8 @@ class BookingListResponse(BaseModel):
 class CancelRequest(BaseModel):
     reason: str = Field(min_length=3, max_length=1000)
     email: EmailStr | None = None  # guest proof when unauthenticated
+    refund_to_number: str | None = Field(default=None, max_length=25)
+    refund_to_name: str | None = Field(default=None, max_length=100)
 
 
 class CancelResponse(BaseModel):
@@ -208,6 +217,13 @@ class AdminBookingAddress(BaseModel):
     region: str | None = None
 
 
+class AdminBookingRefund(BaseModel):
+    status: str
+    refund_amount: float
+    refund_to_number: str | None = None
+    refund_to_name: str | None = None
+
+
 class AdminBookingOut(BookingResponse):
     technician_id: int | None = None
     flex_window: str | None = None
@@ -226,6 +242,8 @@ class AdminBookingOut(BookingResponse):
     timeline: list[AdminBookingTimeline] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    cancellation_reason: str | None = None
+    refund: AdminBookingRefund | None = None
 
 
 class AdminBookingListResponse(BaseModel):

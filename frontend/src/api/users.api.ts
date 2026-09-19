@@ -12,6 +12,7 @@ export interface OfficeUser {
   can_approve_technicians?: boolean;
   can_execute_refunds?: boolean;
   can_view_audit?: boolean;
+  created_at?: string | null;
 }
 
 export interface UserList {

@@ -1,20 +1,27 @@
-import { useMemo, useState } from "react";
-import { CalendarDays, Megaphone, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { Block, BookingDetailSheet } from "@/components/office/BookingDetailSheet";
+﻿import { useMemo, useRef, useState } from "react";
+import { Megaphone, Trash2 } from "lucide-react";
+import { type CalendarRef } from "@fullcalendar/react";
+import { BookingDetailSheet } from "@/components/office/BookingDetailSheet";
 import { AddBookingSheet } from "@/components/office/AddBookingSheet";
-import { TimeSlotSchedule } from "@/components/office/TimeSlotSchedule";
+import { FullCalendarScheduleBoard, type ScheduleBoardView } from "@/components/office/FullCalendarScheduleBoard";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/feedback/ConfirmDialog";
+import { TIME_SLOTS } from "@/components/forms/SchedulePicker";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetCloseButton, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Calendar, type Matcher } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useBusinessHours } from "@/components/forms/BookingCalendar";
+import { PickDateDialog } from "@/components/forms/PickDate";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAdminBookings, useBookingMutation } from "@/hooks/useOffice";
 import { useWaitlist, useWaitlistMutation } from "@/hooks/useOffice";
 import { toast } from "@/stores/toast.store";
-import type { WaitlistEntry } from "@/types/booking.types";
-import { formatDateLong, formatTime12h } from "@/utils/format";
+import { formatDateLong, formatTime12h, manilaToday } from "@/utils/format";
 
 function parseISO(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -31,293 +38,213 @@ function addDaysISO(ymd: string, n: number): string {
   return toISO(d);
 }
 
-function manilaToday(): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
+function clampDate(ymd: string, min: string, max: string): string {
+  if (ymd < min) return min;
+  if (ymd > max) return max;
+  return ymd;
 }
 
-function toDate(ymd: string): Date | undefined {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return undefined;
-  return new Date(`${ymd}T00:00:00`);
-}
+/** Schedule board: FullCalendar (own header), pool strip, waitlist. */
+export function SchedulePage() {
+  const today = manilaToday();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [view, setView] = useState<ScheduleBoardView>("Day");
+  const [range, setRange] = useState({ from: today, to: today });
+  const [calOpen, setCalOpen] = useState(false);
+  const [pendingSlot, setPendingSlot] = useState<{ date: string; time: string; endTime?: string | null; bookingId?: number } | null>(null);
+  const [addBookingOpen, setAddBookingOpen] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const [offerTime, setOfferTime] = useState("08:00");
 
-function toYmd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+  const minDate = today;
+  const maxDate = addDaysISO(today, 30);
+  const hours = useBusinessHours();
 
-function dayOfWeek(ymd: string): string {
-  const wd = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return wd[new Date(`${ymd}T00:00:00`).getDay()] ?? "?";
-}
+  const calRef = useRef<CalendarRef | null>(null);
+  /** Revert for the pending drag/resize (called on dialog cancel only). */
+  const pendingRevert = useRef<(() => void) | null>(null);
 
-/** Hour details drawer: shows bookings in a specific hour + waitlist. */
-function HourDrawer({ date, time, onClose }: { date: string | null; time: string | null; onClose: () => void }) {
-  const board = useAdminBookings({ date_from: date ?? undefined, date_to: date ?? undefined, limit: 100 });
-  const waitlist = useWaitlist(date);
+  // Visible range comes from the calendar (datesSet); queries follow it.
+  const rangeFrom = range.from;
+  const rangeTo = range.to;
+
+  // Load bookings for the visible range. Backend caps limit at 100 (le=100),
+  // so busy weeks pull a conditional second page when total overflows.
+  const dayBookings = useAdminBookings({ date_from: rangeFrom, date_to: rangeTo, limit: 100 });
+  const needPage2 = (dayBookings.data?.total ?? 0) > (dayBookings.data?.items.length ?? 0);
+  const page2 = useAdminBookings(
+    { date_from: rangeFrom, date_to: rangeTo, limit: 100, page: 2 },
+    { enabled: needPage2 },
+  );
+
+  /** Full visible-range list (page 1 + overflow page 2 when the week is busy). */
+  const boardItems = useMemo(
+    () => [...(dayBookings.data?.items ?? []), ...(needPage2 ? (page2.data?.items ?? []) : [])],
+    [dayBookings.data, page2.data, needPage2],
+  );
+
+  const boardPending = dayBookings.isPending || (needPage2 && page2.isPending);
+  const boardFailed = dayBookings.isError || (needPage2 && page2.isError);
+  const boardErrorMessage =
+    (dayBookings.isError && dayBookings.error instanceof Error && dayBookings.error.message) ||
+    (needPage2 && page2.isError && page2.error instanceof Error && page2.error.message) ||
+    "Could not load bookings.";
+
+  const refetchBoard = () => {
+    const pending = [dayBookings.refetch()];
+    if (needPage2) pending.push(page2.refetch());
+    return Promise.all(pending);
+  };
+  const waitlist = useWaitlist(selectedDate);
   const wl = useWaitlistMutation();
+  const mut = useBookingMutation();
 
-  // Bookings in this specific hour
-  const hourBookings = useMemo(() => {
-    if (!time) return [];
-    return (board.data?.items ?? []).filter((b) => b.preferred_time && b.preferred_time.slice(0, 5) === time);
-  }, [board.data, time]);
+  // Calendar events: bookings WITH a scheduled time (pool stays out of the grid).
+  const allAssignedBookings = useMemo(
+    () =>
+      boardItems.filter(
+        (b) =>
+          b.preferred_date >= rangeFrom &&
+          b.preferred_date <= rangeTo &&
+          b.preferred_time &&
+          (b.status === "proposed" || b.status === "scheduled" || b.status === "assigned" || b.status === "ongoing"),
+      ),
+    [boardItems, rangeFrom, rangeTo],
+  );
 
-  const offer = (entry: WaitlistEntry) => {
-    if (!time || !date) return;
+  // Pool bookings (submitted, no time assigned yet) across the visible range.
+  const allPoolBookings = useMemo(
+    () =>
+      boardItems.filter(
+        (b) =>
+          b.preferred_date >= rangeFrom &&
+          b.preferred_date <= rangeTo &&
+          b.status === "submitted" &&
+          !b.preferred_time,
+      ),
+    [boardItems, rangeFrom, rangeTo],
+  );
+
+  const gotoDate = (ymd: string) => {
+    setSelectedDate(ymd);
+    calRef.current?.getApi().gotoDate(ymd);
+  };
+
+  /** Calendar header nav reports back: keep view + anchor + query range in sync. */
+  const handleDatesChange = (anchor: string, start: string, endExclusive: string) => {
+    setSelectedDate((prev) => {
+      const next = clampDate(anchor, minDate, maxDate);
+      return next === prev ? prev : next;
+    });
+    setRange((prev) => {
+      const to = addDaysISO(endExclusive, -1);
+      return prev.from === start && prev.to === to ? prev : { from: start, to };
+    });
+  };
+
+  /** Slot guards mirror live business rules (Settings → Business Hours). */
+  const checkSlot = (date: string, time: string): { title: string; message: string } | null => {
+    const day = new Date(`${date}T00:00:00`);
+    if (!hours.openDays[(day.getDay() + 6) % 7]) {
+      const name = day.toLocaleDateString("en-US", { weekday: "long" });
+      return { title: "Closed day", message: `${name} is outside business days. Pick an open day.` };
+    }
+    if (date < minDate || date > maxDate) {
+      return { title: "Out of range", message: "Schedule within today and the next 30 days." };
+    }
+    if (time < hours.openTime || time > hours.closeTime) {
+      return { title: "Outside business hours", message: `Pick ${formatTime12h(hours.openTime)} – ${formatTime12h(hours.closeTime)}.` };
+    }
+    return null;
+  };
+
+  /** Clicked/dragged slot → prefill the propose sheet. Guards mirror business rules. */
+  const handleSlotSelect = (date: string, time: string, endTime: string | null = null) => {
+    const err = checkSlot(date, time);
+    if (err) {
+      toast.error(err.title, err.message);
+      return;
+    }
+    setPendingSlot({ date, time, endTime });
+    setAddBookingOpen(true);
+  };
+
+  /** Drag-move / resize → confirm → guard-checked set-slot. Dialog cancel reverts the drag. */
+  const requestMove = (bookingId: number, newDate: string, newTime: string, durationMinutes: number, kind: "move" | "resize", revert: () => void) => {
+    const booking = boardItems.find((b) => b.id === bookingId);
+    if (!booking) {
+      revert();
+      return;
+    }
+    if (booking.status === "ongoing") {
+      toast.error("Job in progress", "Ongoing jobs can't be moved. Edit via the detail sheet.");
+      revert();
+      return;
+    }
+    const err = checkSlot(newDate, newTime);
+    if (err) {
+      toast.error(err.title, err.message);
+      revert();
+      return;
+    }
+    const oldLabel = `${formatDateLong(booking.preferred_date)} at ${formatTime12h(booking.preferred_time?.slice(0, 5) ?? null)}`;
+    const newLabel = `${formatDateLong(newDate)} at ${formatTime12h(newTime)}`;
+    let confirmed = false;
+    pendingRevert.current = () => {
+      if (!confirmed) revert();
+    };
+    setConfirm({
+      title: `${kind === "move" ? "Move" : "Resize"} ${booking.reference_id}?`,
+      body: (
+        <>
+          {oldLabel} → <strong>{newLabel}</strong>
+          {kind === "resize" ? ` (${durationMinutes} min).` : "."} Everyone affected is notified.
+        </>
+      ),
+      confirmLabel: kind === "move" ? "Move booking" : "Change duration",
+      onConfirm: async () => {
+        confirmed = true;
+        try {
+          await mut.setSlot.mutateAsync({ id: bookingId, date: newDate, time: newTime, duration: durationMinutes });
+          toast.success(kind === "move" ? "Booking moved" : "Duration changed", newLabel);
+        } catch (err) {
+          toast.error(kind === "move" ? "Move failed" : "Resize failed", err instanceof Error ? err.message : undefined);
+        }
+      },
+    });
+  };
+
+  const offer = (entryId: number, name: string) => {
     wl.offer.mutate(
-      { id: entry.id, time },
+      { id: entryId, time: offerTime },
       {
-        onSuccess: () => toast.success("Offer sent", `${entry.name} was emailed a booking link.`),
+        onSuccess: () => toast.success("Offer sent", `${name} was emailed a booking link.`),
         onError: (e) => toast.error("Offer failed", e instanceof Error ? e.message : undefined),
       },
     );
   };
 
   return (
-    <Sheet open={date !== null && time !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent label="Hour details" className="flex w-full flex-col gap-0 p-0 sm:max-w-md" onClose={onClose}>
-        <div className="flex items-start justify-between gap-2 border-b border-gray-200 p-4">
-          <div>
-            <SheetTitle>{date ? formatDateLong(date) : ""}</SheetTitle>
-            <p className="mt-0.5 text-sm tabular-nums text-gray-600">
-              {time ? formatTime12h(time) : ""} hour
-            </p>
-          </div>
-          <SheetCloseButton onClose={onClose} />
-        </div>
-        <div className="thin-scroll flex-1 overflow-y-auto p-4">
-          <div className="flex flex-col gap-4">
-            <Block title={`Bookings (${hourBookings.length})`}>
-              {board.isPending ? (
-                <p className="text-sm text-gray-500">Loading…</p>
-              ) : hourBookings.length === 0 ? (
-                <p className="text-sm text-gray-500">No bookings at this hour.</p>
-              ) : (
-                <dl className="flex flex-col gap-2">
-                  {hourBookings.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-2.5 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-gray-900">
-                          {`${b.customer_first_name} ${b.customer_last_name}`.trim()}
-                        </p>
-                        <p className="truncate font-technical text-xs text-gray-500">{b.reference_id}</p>
-                      </div>
-                      <StatusBadge status={b.status} />
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </Block>
-            <Block title={`Waitlist (${(waitlist.data ?? []).length})`}>
-              {waitlist.isPending ? (
-                <p className="text-sm text-gray-500">Loading…</p>
-              ) : (waitlist.data ?? []).length === 0 ? (
-                <p className="text-sm text-gray-500">Nobody waiting.</p>
-              ) : (
-                <dl className="flex flex-col gap-2">
-                  {(waitlist.data ?? []).map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-2.5 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-gray-900">{entry.name}</p>
-                        <p className="truncate text-xs tabular-nums text-gray-500">{entry.phone}</p>
-                        {entry.status === "offered" && (
-                          <p className="text-xs font-medium text-teal-700">Offer sent by email</p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 gap-1.5">
-                        {entry.status === "waiting" && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={wl.offer.isPending}
-                            onClick={() => offer(entry)}
-                          >
-                            <Megaphone size={14} aria-hidden="true" />
-                            Offer
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          aria-label={`Remove ${entry.name} from waitlist`}
-                          disabled={wl.remove.isPending}
-                          onClick={() =>
-                            wl.remove.mutate(entry.id, {
-                              onError: (e) => toast.error("Remove failed", e instanceof Error ? e.message : undefined),
-                            })
-                          }
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </Block>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** Daily timetable schedule board: hourly rows 8am-5pm, pool strip for awaiting-schedule bookings. */
-export function SchedulePage() {
-  const today = manilaToday();
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [calOpen, setCalOpen] = useState(false);
-  const [selectedHour, setSelectedHour] = useState<{ date: string; time: string } | null>(null);
-  const [addBookingOpen, setAddBookingOpen] = useState(false);
-  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-
-  const minDate = today;
-  const maxDate = addDaysISO(today, 30);
-
-  // Load bookings for the selected day
-  const dayBookings = useAdminBookings({ date_from: selectedDate, date_to: selectedDate, limit: 100 });
-  const waitlist = useWaitlist(selectedDate);
-  const mut = useBookingMutation();
-
-  // Get all assigned and ongoing bookings for the day (only those WITH a scheduled time)
-  const allAssignedBookings = useMemo(
-    () => {
-      const filtered = (dayBookings.data?.items ?? []).filter(
-        (b) => b.preferred_date === selectedDate && b.preferred_time && (b.status === "proposed" || b.status === "scheduled" || b.status === "assigned" || b.status === "ongoing")
-      );
-      console.debug("allAssignedBookings filter:", {
-        totalItems: dayBookings.data?.items?.length ?? 0,
-        filteredItems: filtered.length,
-        selectedDate,
-        sample: dayBookings.data?.items?.[0] ? {
-          id: dayBookings.data.items[0].id,
-          preferred_date: dayBookings.data.items[0].preferred_date,
-          preferred_time: dayBookings.data.items[0].preferred_time,
-          status: dayBookings.data.items[0].status,
-        } : null,
-      });
-      return filtered;
-    },
-    [dayBookings.data, selectedDate]
-  );
-
-  // Get all pool bookings (submitted, no time assigned yet)
-  const allPoolBookings = useMemo(
-    () => (dayBookings.data?.items ?? []).filter(
-      (b) => b.preferred_date === selectedDate && b.status === "submitted" && !b.preferred_time
-    ),
-    [dayBookings.data, selectedDate]
-  );
-
-  const dayName = dayOfWeek(selectedDate);
-
-  const disabled: Matcher[] = [
-    { before: toDate(minDate) as Date },
-    { after: toDate(maxDate) as Date },
-    { dayOfWeek: [0] }, // Sundays
-  ];
-
-  const handleDateChange = (direction: -1 | 1) => {
-    const newDate = addDaysISO(selectedDate, direction);
-    if (newDate >= minDate && newDate <= maxDate) {
-      setSelectedDate(newDate);
-    }
-  };
-
-  return (
     <div className="min-w-0">
       <PageHeader
         title="Schedule"
-        description="Daily timetable with hourly time slots. View assignments, manage pool bookings, check the waitlist."
+        description="Day, Week, Month and List views with drag-and-drop. View assignments, manage pool bookings, check the waitlist."
       />
 
-      {/* Header: Date navigation */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setSelectedDate(today)}
-              variant="default"
-            >
-              Today
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="min-h-[36px] min-w-[36px]"
-              disabled={selectedDate <= minDate}
-              onClick={() => handleDateChange(-1)}
-              aria-label="Previous day"
-            >
-              <ChevronLeft size={16} aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="min-h-[36px] min-w-[36px]"
-              disabled={selectedDate >= maxDate}
-              onClick={() => handleDateChange(1)}
-              aria-label="Next day"
-            >
-              <ChevronRight size={16} aria-hidden="true" />
-            </Button>
-            <Popover open={calOpen} onOpenChange={setCalOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarDays size={16} aria-hidden="true" />
-                  Pick date
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={toDate(selectedDate)}
-                  disabled={disabled}
-                  onSelect={(d) => {
-                    if (d) {
-                      setSelectedDate(toYmd(d));
-                      setCalOpen(false);
-                    }
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <Button type="button" size="sm" onClick={() => setAddBookingOpen(true)}>
-            + Add booking
-          </Button>
-        </div>
-
-        {/* Date display */}
-        <div className="px-1 py-2">
-          <h2 className="text-xl font-bold text-gray-900">
-            {dayName}, {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-          </h2>
-        </div>
-      </div>
+      {/* Date navigation lives in the calendar header (prev/next/today, Pick date, view switch). */}
 
       {/* Loading / Error states */}
-      {dayBookings.isPending && (
+      {boardPending && (
         <div aria-busy="true" aria-label="Loading schedule" className="mt-4">
           <CardSkeleton />
         </div>
       )}
-      {dayBookings.isError && (
+      {boardFailed && (
         <div className="mt-4">
           <ErrorCard
-            message={dayBookings.error instanceof Error ? dayBookings.error.message : "Could not load bookings."}
-            onRetry={() => void dayBookings.refetch()}
+            message={boardErrorMessage}
+            onRetry={() => void refetchBoard()}
           />
         </div>
       )}
@@ -342,7 +269,10 @@ export function SchedulePage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedHour({ date: selectedDate, time: "08:00" })}
+                      onClick={() => {
+                        setPendingSlot({ date: b.preferred_date, time: "08:00", bookingId: b.id });
+                        setAddBookingOpen(true);
+                      }}
                       className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100 transition-colors whitespace-nowrap"
                     >
                       Assign time
@@ -353,18 +283,51 @@ export function SchedulePage() {
             </div>
           )}
 
-          {/* Daily timetable 8 AM to 5 PM using TimeSlotSchedule component */}
-          <TimeSlotSchedule
+          {/* FullCalendar (own header, 8 AM to 5 PM business hours) */}
+          <FullCalendarScheduleBoard
             bookings={allAssignedBookings}
-            onBookingClick={(bookingId) => setSelectedBookingId(bookingId)}
-            onSlotClick={(time) => setSelectedHour({ date: selectedDate, time })}
+            selectedDate={selectedDate}
+            view={view}
+            minDate={minDate}
+            maxDate={maxDate}
+            calendarRef={calRef}
+            onViewChange={setView}
+            onDatesChange={handleDatesChange}
+            onEventClick={(bookingId) => setSelectedBookingId(bookingId)}
+            onSlotSelect={handleSlotSelect}
+            onEventMove={(id, date, time, duration, revert) => requestMove(id, date, time, duration, "move", revert)}
+            onEventResize={(id, date, time, duration, revert) => requestMove(id, date, time, duration, "resize", revert)}
+            onPickDateRequest={() => setCalOpen(true)}
+            onAddBookingRequest={() => {
+              setPendingSlot(null);
+              setAddBookingOpen(true);
+            }}
           />
 
           {/* Waitlist */}
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h3 className="text-sm font-semibold text-gray-900">
-              Waitlist ({(waitlist.data ?? []).length})
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Waitlist ({(waitlist.data ?? []).length})
+              </h3>
+              {(waitlist.data ?? []).length > 0 && (
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                  Offer time
+                  <Select value={offerTime} onValueChange={setOfferTime}>
+                    <SelectTrigger className="w-32" aria-label="Offer time">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIME_SLOTS.map((slot) => (
+                        <SelectItem key={slot} value={slot}>
+                          {formatTime12h(slot)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+              )}
+            </div>
             {waitlist.isPending ? (
               <p className="mt-2 text-sm text-gray-500">Loading…</p>
             ) : (waitlist.data ?? []).length === 0 ? (
@@ -376,12 +339,34 @@ export function SchedulePage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
                       <p className="text-xs text-gray-500">{entry.phone}</p>
+                      {entry.status === "offered" && (
+                        <p className="text-xs font-medium text-teal-700">Offer sent by email</p>
+                      )}
                     </div>
-                    <div className="flex gap-1.5">
-                      <Button size="sm" variant="outline">
-                        <Megaphone size={14} aria-hidden="true" />
-                      </Button>
-                      <Button size="sm" variant="outline">
+                    <div className="flex shrink-0 gap-1.5">
+                      {entry.status === "waiting" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={wl.offer.isPending}
+                          onClick={() => offer(entry.id, entry.name)}
+                        >
+                          <Megaphone size={14} aria-hidden="true" />
+                          Offer
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Remove ${entry.name} from waitlist`}
+                        disabled={wl.remove.isPending}
+                        onClick={() =>
+                          wl.remove.mutate(entry.id, {
+                            onError: (e) => toast.error("Remove failed", e instanceof Error ? e.message : undefined),
+                          })
+                        }
+                      >
                         <Trash2 size={14} aria-hidden="true" />
                       </Button>
                     </div>
@@ -393,17 +378,38 @@ export function SchedulePage() {
         </div>
       )}
 
-      {/* Hour drawer for viewing details */}
-      <HourDrawer
-        date={selectedHour?.date ?? null}
-        time={selectedHour?.time ?? null}
-        onClose={() => setSelectedHour(null)}
+      {/* Move/resize confirmation (dialog cancel reverts the drag, then refresh) */}
+      <ConfirmDialog
+        spec={confirm}
+        onClose={() => {
+          pendingRevert.current?.();
+          pendingRevert.current = null;
+          setConfirm(null);
+          void refetchBoard();
+        }}
       />
 
-      {/* Add booking sheet */}
+      {/* Pick-date dialog (opened from the calendar header) */}
+      <PickDateDialog
+        open={calOpen}
+        onClose={() => setCalOpen(false)}
+        value={selectedDate}
+        onChange={gotoDate}
+        minDate={minDate}
+        maxDate={maxDate}
+      />
+
+      {/* Add booking sheet (prefilled when opened from a calendar slot or pool row) */}
       <AddBookingSheet
         open={addBookingOpen}
-        onClose={() => setAddBookingOpen(false)}
+        initialDate={pendingSlot?.date}
+        initialStartTime={pendingSlot?.time}
+        initialEndTime={pendingSlot?.endTime}
+        initialBookingId={pendingSlot?.bookingId}
+        onClose={() => {
+          setAddBookingOpen(false);
+          setPendingSlot(null);
+        }}
         onSave={async (data) => {
           try {
             // Calculate duration in minutes from start and end time
@@ -421,10 +427,11 @@ export function SchedulePage() {
               startTime: data.startTime,
               duration: durationMinutes,
             });
-            
+
             toast.success("Schedule proposed", `${data.date} at ${formatTime12h(data.startTime)}. Customer notified via email.`);
             setAddBookingOpen(false);
-            await dayBookings.refetch();
+            setPendingSlot(null);
+            await refetchBoard();
           } catch (err) {
             toast.error("Proposal failed", err instanceof Error ? err.message : "Could not propose schedule for booking.");
           }
@@ -433,10 +440,10 @@ export function SchedulePage() {
 
       {/* Booking detail sheet for editing scheduled bookings */}
       <BookingDetailSheet
-        booking={selectedBookingId ? dayBookings.data?.items.find((b) => b.id === selectedBookingId) ?? null : null}
+        booking={selectedBookingId ? boardItems.find((b) => b.id === selectedBookingId) ?? null : null}
         onClose={() => {
           setSelectedBookingId(null);
-          void dayBookings.refetch();
+          void refetchBoard();
         }}
         onProposeSchedule={() => {
           setAddBookingOpen(true);

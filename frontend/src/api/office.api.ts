@@ -9,6 +9,11 @@ export interface Refund {
   status: string;
   admin_notes?: string | null;
   denial_reason?: string | null;
+  refund_to_number?: string | null;
+  refund_to_name?: string | null;
+  refund_method?: string | null;
+  payout_reference_number?: string | null;
+  payout_receipt_url?: string | null;
   processed_at?: string | null;
   created_at: string;
 }
@@ -79,6 +84,12 @@ export const refundsApi = {
 
   review: (id: number, payload: { action: "approve" | "deny"; admin_notes?: string; denial_reason?: string }) =>
     api.post<Refund>(`/admin/refunds/${id}/review`, payload).then((r) => r.data),
+
+  complete: (id: number, form: FormData) =>
+    api.post<Refund>(`/admin/refunds/${id}/complete`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    }).then((r) => r.data),
 };
 
 /** Backend: audit viewer (owner or can_view_audit grant). */

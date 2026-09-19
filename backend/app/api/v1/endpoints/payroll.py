@@ -31,11 +31,14 @@ async def search_payrolls(
     request: Request, db: DbDep, owner: OwnerTwoFaUser,
     employee_user_id: int | None = Query(default=None, gt=0),
     payroll_status: str | None = Query(default=None, max_length=20),
+    search: str | None = Query(default=None, max_length=100),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
+    sort_by: str = Query(default="newest", pattern=r"^(newest|period|net)$"),
+    sort_dir: str = Query(default="desc", pattern=r"^(asc|desc)$"),
 ) -> PayrollListResponse:
     total, rows = await payroll.list_payrolls(db, employee_user_id, payroll_status,
-                                              page, limit)
+                                              page, limit, sort_by, sort_dir, search)
     return PayrollListResponse(
         total=total, items=[PayrollResponse.model_validate(r) for r in rows]
     )

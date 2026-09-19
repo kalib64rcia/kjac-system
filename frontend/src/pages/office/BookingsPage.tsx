@@ -1,15 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Calendar as CalendarIcon,
   CalendarCheck,
-  ChevronLeft,
-  ChevronRight,
+  CircleCheck,
   Info,
-  Play,
-  Search,
   Wallet,
   Wrench,
 } from "lucide-react";
@@ -19,20 +13,21 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { useNavigate } from "react-router-dom";
 import { BookingDetailSheet } from "@/components/office/BookingDetailSheet";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { FilterPopover, RowsSelect, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
+import { EmptyState, FilteredEmptyState } from "@/components/shared/EmptyState";
+import { FilterPopover, ListLoading, PaginationFooter, ResultCount, SearchField, SortHeaderButton, TABLE_BASE, TableShell, TD_CELL, TH_CELL, THEAD_ROW, TR_ROW, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CardSkeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/api/errors";
 import { useAdminBookings } from "@/hooks/useOffice";
+import { pageCountOf, usePaginationState } from "@/hooks/usePaginationState";
 import { useBrands, useServices } from "@/hooks/usePublic";
+import { useAuthStore } from "@/stores/auth.store";
 import type { AdminBooking, BookingStatus } from "@/types/booking.types";
 import { formatDateLong, manilaToday } from "@/utils/format";
 import { cn } from "@/lib/utils";
@@ -47,9 +42,8 @@ const TABS: { key: string; label: string; status?: BookingStatus }[] = [
   { key: "ongoing", label: "Ongoing", status: "ongoing" },
   { key: "completed", label: "Completed", status: "completed" },
   { key: "cancelled", label: "Cancelled", status: "cancelled" },
+  { key: "expired", label: "Expired", status: "expired" },
 ];
-
-const DEFAULT_PAGE_SIZE = 50;
 
 type SortKey = "newest" | "schedule" | "customer";
 const SORT_FIRST_DIR: Record<SortKey, "asc" | "desc"> = {
@@ -83,20 +77,23 @@ export function BookingsPage() {
   const [dateOpen, setDateOpen] = useState(false);
   const [brand, setBrand] = useState("");
   const [service, setService] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize, resetPage, prevPage, nextPage } = usePaginationState(50);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [assignId, setAssignId] = useState<number | null>(null);
+
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const base = user?.role === "owner" ? "/owner" : "/staff";
 
   const debouncedSearch = useDebouncedValue(search, 300);
   const status = TABS.find((t) => t.key === tab)?.status;
 
   // Fresh page from page 1 whenever the result-set definition changes.
   useEffect(() => {
-    setPage(1);
-  }, [tab, debouncedSearch, date, brand, service, sortBy, sortDir, pageSize]);
+    resetPage();
+  }, [tab, debouncedSearch, date, brand, service, sortBy, sortDir, pageSize, resetPage]);
 
   const board = useAdminBookings({
     status,
@@ -121,7 +118,7 @@ export function BookingsPage() {
 
   const items = board.data?.items ?? [];
   const total = board.data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const pageCount = pageCountOf(total, pageSize);
 
   // Fresh object from live queries — mutations refresh the open drawer, no stale badge.
   const selected: AdminBooking | null =
@@ -132,46 +129,34 @@ export function BookingsPage() {
   const counts = useMemo(() => {
     const list = overview.data?.items ?? [];
     const today = manilaToday();
+    const scheduledToday = list.filter((b) => b.preferred_date === today).length;
     return {
-      needsPayment: list.filter((b) => b.status === "scheduled").length,
+      needsPayment: list.filter((b) => b.status === "proposed").length,
       needsTech: list.filter(
         (b) => b.status === "confirmed" && !b.technician_id,
       ).length,
-      today: list.filter((b) => b.preferred_date === today).length,
-      ongoing: list.filter((b) => b.status === "ongoing").length,
+      today: scheduledToday,
       assignedToday: list.filter(
         (b) => b.preferred_date === today && (b.status === "assigned" || b.technician_id != null),
+      ).length,
+      completedToday: list.filter(
+        (b) => b.preferred_date === today && b.status === "completed",
       ).length,
     };
   }, [overview.data]);
 
   /** Sortable header button: first click takes the column's natural order, then toggles. */
-  const sortHeader = (label: string, key: SortKey) => {
-    const active = sortBy === key;
-    const Icon = active ? (sortDir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          if (!active) {
-            setSortBy(key);
-            setSortDir(SORT_FIRST_DIR[key]);
-          } else {
-            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-          }
-        }}
-        aria-label={`Sort by ${label}`}
-        className="inline-flex cursor-pointer items-center gap-1 uppercase transition-colors hover:text-gray-900"
-      >
-        {label}
-        <Icon
-          size={14}
-          aria-hidden="true"
-          className={active ? "text-primary-600" : "text-gray-400"}
-        />
-      </button>
-    );
+  const onSortKey = (key: SortKey) => {
+    if (sortBy !== key) {
+      setSortBy(key);
+      setSortDir(SORT_FIRST_DIR[key]);
+    } else {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    }
   };
+  const sortHeader = (label: string, key: SortKey) => (
+    <SortHeaderButton label={label} active={sortBy === key} ascending={sortDir === "asc"} onSort={() => onSortKey(key)} />
+  );
 
   const columnHelper = createColumnHelper<AdminBooking>();
 
@@ -345,29 +330,15 @@ export function BookingsPage() {
         title="Bookings"
         description="Manage bookings, assign technicians, and track schedules."
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Needs payment" value={String(counts.needsPayment)} icon={Wallet} hint="Submitted, awaiting receipt" tint="sky" />
-        <StatCard title="Needs technician" value={String(counts.needsTech)} icon={Wrench} hint="Confirmed bookings awaiting technician" tint="slate" />
-        <StatCard title="Assigned today" value={String(counts.assignedToday)} icon={CalendarCheck} hint="With team, counts toward today" tint="teal" />
-        <StatCard title="Scheduled today" value={String(counts.today)} icon={CalendarCheck} hint="Scheduled for today" tint="warning" />
-        <StatCard title="Ongoing now" value={String(counts.ongoing)} icon={Play} hint="Services currently in progress" tint="teal" />
-      </div>
+      <StatsGrid>
+        <StatCard title="Needs payment" value={String(counts.needsPayment)} icon={Wallet} hint="Proposed, waiting for receipt" tint="sky" loading={overview.isLoading && !overview.data} />
+        <StatCard title="Needs technician" value={String(counts.needsTech)} icon={Wrench} hint="Confirmed, awaiting assignment" tint="warning" loading={overview.isLoading && !overview.data} />
+        <StatCard title="On the board today" value={String(counts.today)} icon={CalendarCheck} hint={`${counts.assignedToday} with team`} tint="teal" loading={overview.isLoading && !overview.data} />
+        <StatCard title="Completed today" value={String(counts.completedToday)} icon={CircleCheck} hint="Finished services" tint="success" loading={overview.isLoading && !overview.data} />
+      </StatsGrid>
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-52">
-          <Search
-            size={18}
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search reference, name, email…"
-            aria-label="Search bookings"
-            className="pl-10"
-          />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Search reference, name, email…" label="Search bookings" />
         <Popover open={dateOpen} onOpenChange={setDateOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -440,33 +411,11 @@ export function BookingsPage() {
         />
       </div>
 
-      <div className="flex min-h-[44px] items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" role="status">
-          {board.data ? (
-            <>
-              Showing{" "}
-              <span className="font-semibold tabular-nums text-gray-900">{items.length}</span>{" "}
-              of <span className="font-semibold tabular-nums text-gray-900">{total}</span>{" "}
-              {total === 1 ? "booking" : "bookings"}
-            </>
-          ) : (
-            "Loading bookings…"
-          )}
-        </p>
-        {filtersActive && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Clear
-          </Button>
-        )}
-      </div>
+      <ResultCount shown={items.length} total={total} noun="booking" nounPlural="bookings" isLoading={!board.data} loadingLabel="Loading bookings…" filtersActive={filtersActive} onClear={clearFilters} />
 
       <div className="mt-1 flex min-w-0 flex-col gap-3">
         {board.isLoading && !board.data && (
-          <div aria-busy="true" aria-label="Loading bookings">
-            {[0, 1, 2].map((i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
+          <ListLoading label="Loading bookings" />
         )}
         {board.isError && board.error instanceof ApiError && board.error.status === 404 ? (
           <EmptyState
@@ -486,28 +435,23 @@ export function BookingsPage() {
           )
         )}
         {board.data && items.length === 0 && (
-          <EmptyState
-            title={filtersActive ? "No bookings match these filters" : "No bookings yet"}
-            description={
-              filtersActive
-                ? "Try another status, date, or search."
-                : "New walk-in and app bookings will appear here."
-            }
-            actionLabel={filtersActive ? "Clear filters" : undefined}
-            onAction={filtersActive ? clearFilters : undefined}
+          <FilteredEmptyState
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            filteredTitle="No bookings match these filters"
+            filteredDescription="Try another status, date, or search."
+            emptyTitle="No bookings yet"
+            emptyDescription="New walk-in and app bookings will appear here."
           />
         )}
         {items.length > 0 && (
           <>
-            <div
-              aria-busy={board.isFetching}
-              className="thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&:hover::-webkit-scrollbar-track]:bg-transparent"
-            >
+            <TableShell shadow>
               <TableLoadingBar active={board.isFetching && items.length > 0} label="Refreshing bookings" />
-              <table className="w-full min-w-[840px] border-collapse text-left">
+              <table className={cn(TABLE_BASE, "min-w-[840px]")}>
                 <thead>
                   {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-gray-200 bg-gray-50">
+                    <tr key={hg.id} className={THEAD_ROW}>
                       {hg.headers.map((h) => {
                         const key = SORT_COLUMN[h.column.id] ?? null;
                         return (
@@ -524,7 +468,7 @@ export function BookingsPage() {
                                     : "descending"
                             }
                             className={cn(
-                              "whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500",
+                              TH_CELL,
                               h.column.id === "reference" &&
                                 "sticky left-0 border-r border-gray-200 bg-gray-50",
                             )}
@@ -540,13 +484,13 @@ export function BookingsPage() {
                   {table.getRowModel().rows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60"
+                      className={TR_ROW}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td
                           key={cell.id}
                           className={cn(
-                            "min-w-0 px-3 py-2.5 align-middle",
+                            TD_CELL,
                             cell.column.id === "reference" &&
                               "sticky left-0 border-r border-gray-200 bg-white",
                           )}
@@ -558,46 +502,8 @@ export function BookingsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <RowsSelect
-                value={pageSize}
-                onChange={(n) => {
-                  setPageSize(n);
-                  setPage(1);
-                }}
-              />
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <p className="text-sm text-gray-600">
-                  Page <span className="font-semibold tabular-nums text-gray-900">{page}</span>{" "}
-                  of <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1 || board.isFetching}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                    Prev
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= pageCount || board.isFetching}
-                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                    aria-label="Next page"
-                  >
-                    Next
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </TableShell>
+            <PaginationFooter page={page} pageCount={pageCount} isFetching={board.isFetching} onPrev={prevPage} onNext={() => nextPage(pageCount)} pageSize={pageSize} onPageSize={setPageSize} />
           </>
         )}
       </div>
@@ -605,6 +511,10 @@ export function BookingsPage() {
       <BookingDetailSheet
         booking={selected}
         onClose={closeSheet}
+        onProposeSchedule={() => {
+          closeSheet();
+          navigate(`${base}/schedule`);
+        }}
         startAssignOpen={assignId !== null && assignId === selected?.id}
       />
     </div>

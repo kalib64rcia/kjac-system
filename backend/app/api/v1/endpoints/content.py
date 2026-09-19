@@ -11,8 +11,15 @@ from app.schemas.settings import SettingOut
 router = APIRouter(prefix="/content", tags=["content"])
 
 # Non-landing keys the public site needs to render correctly
-# (schedule rules). Everything else stays admin-only.
-PUBLIC_EXTRA_KEYS = ("allow_sunday_bookings",)
+# (schedule rules, contact info, GCash details). Everything else stays
+# admin-only.
+PUBLIC_EXTRA_KEYS = (
+    "allow_sunday_bookings",
+    "business_email",
+    "business_phone",
+    "gcash_account_number",
+    "gcash_account_name",
+)
 
 
 @router.get("/landing", response_model=list[SettingOut])

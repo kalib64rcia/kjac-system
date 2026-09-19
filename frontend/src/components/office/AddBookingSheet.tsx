@@ -1,12 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Block } from "@/components/office/BookingDetailSheet";
 import { Button } from "@/components/ui/button";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
 import {
   Sheet,
-  SheetCloseButton,
   SheetContent,
-  SheetTitle,
 } from "@/components/ui/sheet";
 import {
   Select,
@@ -16,12 +15,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SchedulePicker, TIME_SLOTS } from "@/components/forms/SchedulePicker";
+import { useBusinessHours } from "@/components/forms/BookingCalendar";
 import { useAdminBookings } from "@/hooks/useOffice";
 import { formatDateLong, formatTime12h } from "@/utils/format";
 
 interface AddBookingSheetProps {
   open: boolean;
   onClose: () => void;
+  /** Prefill from a calendar slot / pool row (calendar range select). */
+  initialDate?: string | null;
+  initialStartTime?: string | null;
+  initialEndTime?: string | null;
+  initialBookingId?: number | null;
   onSave?: (data: {
     bookingId: number;
     date: string;
@@ -66,12 +71,24 @@ function getBookingEndTime(startTimeStr: string): string {
  * Admin picks a date and time, customer receives email to accept/decline.
  * Technician assignment happens AFTER customer accepts.
  */
-export function AddBookingSheet({ open, onClose, onSave }: AddBookingSheetProps) {
+export function AddBookingSheet({ open, onClose, initialDate, initialStartTime, initialEndTime, initialBookingId, onSave }: AddBookingSheetProps) {
   const [selectedBookingId, setSelectedBookingId] = useState<string>("");
   const [proposedDate, setProposedDate] = useState<string>("");
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
+  const hours = useBusinessHours();
+
+  // Fresh form on every open: prefill when provided, defaults otherwise.
+  // Nothing persists between opens — closing always discards.
+  useEffect(() => {
+    if (open) {
+      setSelectedBookingId(initialBookingId != null ? String(initialBookingId) : "");
+      setProposedDate(initialDate ?? "");
+      setStartTime(initialStartTime ?? "08:00");
+      setEndTime(initialEndTime && TIME_SLOTS.includes(initialEndTime) ? initialEndTime : "09:00");
+    }
+  }, [open, initialDate, initialStartTime, initialEndTime, initialBookingId]);
 
   // 1. Load ALL submitted bookings (no date filter) for dropdown
   const allSubmitted = useAdminBookings({ status: "submitted", limit: 100 });
@@ -156,16 +173,12 @@ export function AddBookingSheet({ open, onClose, onSave }: AddBookingSheetProps)
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent label="Propose booking schedule" className="flex w-full flex-col gap-0 p-0 sm:max-w-md" onClose={onClose}>
-        <div className="flex items-start justify-between gap-2 border-b border-gray-200 p-4">
-          <div>
-            <SheetTitle>Propose booking schedule</SheetTitle>
-            <p className="mt-0.5 text-sm tabular-nums text-gray-600">
-              {proposedDate ? formatDateLong(proposedDate) : "Select a date"}
-            </p>
-          </div>
-          <SheetCloseButton onClose={onClose} />
-        </div>
+      <SheetContent label="Propose booking schedule" side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md" onClose={onClose}>
+        <DrawerHeader
+          title="Propose booking schedule"
+          sub={<span className="tabular-nums">{proposedDate ? formatDateLong(proposedDate) : "Select a date"}</span>}
+          onClose={onClose}
+        />
 
         <div className="thin-scroll flex-1 overflow-y-auto p-4">
           <div className="flex flex-col gap-4">
@@ -222,7 +235,8 @@ export function AddBookingSheet({ open, onClose, onSave }: AddBookingSheetProps)
               <Block title="2 Date">
                 <SchedulePicker
                   date={proposedDate}
-                  allowSunday={true}
+                  allowSunday={hours.allowSunday}
+                  showScheduleNote={false}
                   onChange={({ preferred_date }) => {
                     if (preferred_date) setProposedDate(preferred_date);
                   }}
@@ -296,18 +310,15 @@ export function AddBookingSheet({ open, onClose, onSave }: AddBookingSheetProps)
         </div>
 
         {/* Save Button */}
-        <div className="border-t border-gray-200 bg-white p-4 flex gap-2">
+        <div className="border-t border-gray-200 bg-white p-4">
           <Button
             type="button"
-            className="flex-1"
+            className="w-full"
             disabled={saving || !selectedBooking || !proposedDate || !startTime || !endTime || !!conflictingBooking}
             onClick={handleSave}
           >
             {saving && <Loader2 size={14} className="mr-1.5 animate-spin" aria-hidden="true" />}
             {saving ? "Proposing…" : "Propose Schedule"}
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            Discard
           </Button>
         </div>
       </SheetContent>

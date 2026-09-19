@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import {
   ClipboardClock,
   Package,
@@ -6,10 +6,11 @@ import {
   Wallet,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/auth.store";
+import { formatPeso } from "@/utils/format";
 import { useDashboard, useRefunds } from "@/hooks/useOffice";
 import { useOfficeUsers } from "@/hooks/useOffice";
 
@@ -19,14 +20,14 @@ function OwnerShortcuts() {
   const proposed = refunds.data?.total ?? 0;
   const approvals = (pending.data?.items ?? []).length;
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatsGrid>
       <Link to="/owner/team" className="cursor-pointer">
         <StatCard title="Pending approvals" value={String(approvals)} icon={Users}
-          hint="Staff and technician applications" />
+          hint="Staff and technician applications" loading={pending.isLoading && !pending.data} />
       </Link>
       <Link to="/owner/refunds" className="cursor-pointer">
         <StatCard title="Refund proposals" value={String(proposed)} icon={Wallet}
-          hint="Awaiting your decision" />
+          hint="Awaiting your decision" loading={refunds.isLoading && !refunds.data} />
       </Link>
       <Link to="/owner/bookings" className="cursor-pointer">
         <StatCard title="Bookings" value="→" icon={ClipboardClock} hint="Open dispatch board" />
@@ -34,12 +35,8 @@ function OwnerShortcuts() {
       <Link to="/owner/team" className="cursor-pointer">
         <StatCard title="Team" value="→" icon={Users} hint="Manage staff and grants" />
       </Link>
-    </div>
+    </StatsGrid>
   );
-}
-
-function peso(n: number): string {
-  return `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 }
 
 /** Owner home: oversight + pending decisions + live business pulse. */
@@ -63,12 +60,12 @@ export function OwnerDashboardPage() {
               </div>
             )}
             {dashboard.data ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatsGrid>
                 <StatCard title="Appointments" value={String(dashboard.data.today.appointments)} icon={ClipboardClock} hint="On the board today" tint="sky" />
                 <StatCard title="Pending bookings" value={String(dashboard.data.today.pending_bookings)} icon={ClipboardClock} hint="Needs action" tint="warning" />
                 <StatCard title="Active technicians" value={String(dashboard.data.today.active_technicians)} icon={Users} hint="On jobs" tint="teal" />
-                <StatCard title="Revenue today" value={peso(dashboard.data.today.revenue)} icon={Wallet} hint="Verified payments" tint="success" />
-              </div>
+                <StatCard title="Revenue today" value={formatPeso(dashboard.data.today.revenue)} icon={Wallet} hint="Verified payments" tint="success" />
+              </StatsGrid>
             ) : (
               !dashboard.isLoading && (
                 <p className="text-sm text-gray-600">
@@ -81,7 +78,7 @@ export function OwnerDashboardPage() {
             {dashboard.data && (
               <p className="mt-4 text-sm text-gray-600">
                 This month: <span className="font-semibold tabular-nums text-gray-900">{dashboard.data.this_month.total_bookings}</span> bookings ·{" "}
-                <span className="font-semibold tabular-nums text-gray-900">{peso(dashboard.data.this_month.revenue)}</span> revenue ·{" "}
+                <span className="font-semibold tabular-nums text-gray-900">{formatPeso(dashboard.data.this_month.revenue)}</span> revenue ·{" "}
                 <Link to="/owner/analytics" className="font-semibold text-primary-600 hover:underline">Open analytics →</Link>
               </p>
             )}
@@ -94,7 +91,7 @@ export function OwnerDashboardPage() {
 
 function StaffShortcuts() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatsGrid>
       <Link to="/staff/bookings" className="cursor-pointer">
         <StatCard title="Bookings" value="→" icon={ClipboardClock} hint="Today's dispatch board" />
       </Link>
@@ -107,7 +104,7 @@ function StaffShortcuts() {
       <Link to="/staff/inventory" className="cursor-pointer">
         <StatCard title="Inventory" value="→" icon={Package} hint="Stock and movements" />
       </Link>
-    </div>
+    </StatsGrid>
   );
 }
 

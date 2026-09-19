@@ -1,14 +1,11 @@
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+﻿import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { useDashboard } from "@/hooks/useOffice";
-import { BarChart3, CalendarCheck, CircleCheck, UserPlus, Users, Wallet } from "lucide-react";
-
-function peso(n: number): string {
-  return `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
-}
+import { BarChart3, CalendarCheck, UserPlus, Users, Wallet } from "lucide-react";
+import { formatPeso } from "@/utils/format";
 
 /** Analytics board: owner-only. Same data feeds the owner dashboard. */
 export function AnalyticsPage() {
@@ -27,22 +24,24 @@ export function AnalyticsPage() {
         <div className="flex min-w-0 flex-col gap-4">
           <section aria-label="Today">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">Today</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatsGrid>
               <StatCard title="Appointments" value={String(dashboard.data.today.appointments)} icon={CalendarCheck} hint="On the board today" tint="sky" />
               <StatCard title="Pending bookings" value={String(dashboard.data.today.pending_bookings)} icon={Users} hint="Needs action" tint="warning" />
               <StatCard title="Active technicians" value={String(dashboard.data.today.active_technicians)} icon={Users} hint="On jobs" tint="teal" />
-              <StatCard title="Revenue today" value={peso(dashboard.data.today.revenue)} icon={Wallet} hint="Verified payments" tint="success" />
-            </div>
+              <StatCard title="Revenue today" value={formatPeso(dashboard.data.today.revenue)} icon={Wallet} hint="Verified payments" tint="success" />
+            </StatsGrid>
           </section>
           <section aria-label="This month">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">This month</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatsGrid>
               <StatCard title="Total bookings" value={String(dashboard.data.this_month.total_bookings)} icon={BarChart3} tint="sky" />
-              <StatCard title="Completed" value={String(dashboard.data.this_month.completed_bookings)} icon={CircleCheck} tint="success" />
-              <StatCard title="Cancelled" value={String(dashboard.data.this_month.cancelled_bookings)} icon={CalendarCheck} tint="slate" />
-              <StatCard title="Revenue" value={peso(dashboard.data.this_month.revenue)} icon={Wallet} tint="success" />
+              <StatCard title="Cancelled" value={String(dashboard.data.this_month.cancelled_bookings)} icon={CalendarCheck} hint="Needs follow-up" tint="warning" />
               <StatCard title="New customers" value={String(dashboard.data.this_month.new_customers)} icon={UserPlus} tint="teal" />
-            </div>
+              <StatCard title="Revenue" value={formatPeso(dashboard.data.this_month.revenue)} icon={Wallet} tint="success" />
+            </StatsGrid>
+            <p className="mt-2 text-sm tabular-nums text-gray-600">
+              {dashboard.data.this_month.completed_bookings} of {dashboard.data.this_month.total_bookings} completed.
+            </p>
           </section>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Card>
@@ -57,7 +56,7 @@ export function AnalyticsPage() {
                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} minTickGap={16} />
                         <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={64} tickFormatter={(v: number) => `₱${Number(v).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`} />
-                        <Tooltip formatter={(v) => [peso(Number(v)), "Revenue"]} labelClassName="text-gray-900" />
+                        <Tooltip formatter={(v) => [formatPeso(Number(v)), "Revenue"]} labelClassName="text-gray-900" />
                         <Bar dataKey="total" fill="#38b6ff" radius={[6, 6, 0, 0]} maxBarSize={36} />
                       </BarChart>
                     </ResponsiveContainer>

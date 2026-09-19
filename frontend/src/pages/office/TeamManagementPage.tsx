@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  Search,
+  Pencil,
   Users,
 } from "lucide-react";
 import {
@@ -11,21 +9,19 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { FilterPopover, RowsSelect, TableLoadingBar, useDebouncedValue, SortHeaderButton } from "@/components/shared/FilterPopover";
+import { FilteredEmptyState } from "@/components/shared/EmptyState";
+import { FilterPopover, ListLoading, PaginationFooter, ResultCount, SearchField, TABLE_BASE, TableShell, TD_CELL, TH_CELL, THEAD_ROW, TR_ROW, TableLoadingBar, useDebouncedValue, SortHeaderButton } from "@/components/shared/FilterPopover";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
+import { ToneBadge } from "@/components/shared/ToneBadge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CardSkeleton } from "@/components/ui/skeleton";
 import type { OfficeUser } from "@/api/users.api";
 import { useOfficeUsers, useTechInvites, useStaffInvites } from "@/hooks/useOffice";
+import { pageCountOf, usePaginationState } from "@/hooks/usePaginationState";
 import { cn } from "@/lib/utils";
 import { TeamMemberModal } from "@/components/team/TeamMemberModal";
 import { InviteManager } from "@/components/team/InviteManager";
-
-const DEFAULT_PAGE_SIZE = 50;
 
 type SortKey = "name" | "email";
 const SORT_FIRST_DIR: Record<SortKey, "asc" | "desc"> = {
@@ -58,8 +54,7 @@ export function TeamManagementPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize, resetPage, prevPage, nextPage } = usePaginationState(50);
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -68,8 +63,8 @@ export function TeamManagementPage() {
 
   // Reset page on filter changes
   useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, roleFilter, statusFilter, sortBy, sortDir, pageSize]);
+    resetPage();
+  }, [debouncedSearch, roleFilter, statusFilter, sortBy, sortDir, pageSize, resetPage]);
 
   // Fetch all users
   const users = useOfficeUsers();
@@ -91,16 +86,17 @@ export function TeamManagementPage() {
   // Apply pagination
   const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
   const total = sorted.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const pageCount = pageCountOf(total, pageSize);
 
   // Get selected member for modal
   const selected = users.data?.items?.find((u) => u.id === selectedId) ?? null;
 
   // Calculate stats
+  const members = users.data?.items ?? [];
   const stats = {
-    active: (users.data?.items ?? []).filter((u) => u.status === "active").length,
-    pending: (users.data?.items ?? []).filter((u) => u.status === "pending_approval").length,
-    suspended: (users.data?.items ?? []).filter((u) => u.status === "suspended").length,
+    total: members.length,
+    active: members.filter((u) => u.status === "active").length,
+    pending: members.filter((u) => u.status === "pending_approval").length,
     invited: ((useTechInvites().data ?? []).filter((i) => !i.used_at && !i.revoked_at).length +
       (useStaffInvites().data ?? []).filter((i) => !i.used_at && !i.revoked_at).length),
   };
@@ -154,7 +150,7 @@ export function TeamManagementPage() {
         return (
           <div className="min-w-0 max-w-52">
             <p className="truncate text-sm font-semibold text-gray-900">{memberFullName(u)}</p>
-            <p className="truncate text-xs text-gray-500">{u.position || "—"}</p>
+            <p className="truncate text-xs text-gray-500">{u.position || ""}</p>
           </div>
         );
       },
@@ -183,13 +179,13 @@ export function TeamManagementPage() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
-        const variant =
-          status === "active"
-            ? "success"
-            : status === "pending_approval"
-              ? "warning"
-              : "secondary";
-        return <Badge variant={variant}>{status.replace("_", " ")}</Badge>;
+        return (
+          <ToneBadge
+            map={{ active: "success", pending_approval: "warning" }}
+            value={status}
+            label={status.replace("_", " ")}
+          />
+        );
       },
       size: 120,
     }),
@@ -205,7 +201,7 @@ export function TeamManagementPage() {
             aria-label={`Edit ${memberFullName(row.original)}`}
             onClick={() => setSelectedId(row.original.id)}
           >
-            ✎
+            <Pencil size={16} aria-hidden="true" />
           </Button>
         </div>
       ),
@@ -237,42 +233,24 @@ export function TeamManagementPage() {
         description="Manage all staff and technician accounts, invites, and permissions."
       />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Active" value={String(stats.active)} icon={Users} hint="Active members" tint="teal" />
+      {/* Stat Cards — canonical slots: total · attention · live · growth */}
+      <StatsGrid>
+        <StatCard title="Total members" value={String(stats.total)} icon={Users} hint="Staff and technicians" tint="sky" loading={users.isLoading && !users.data} />
         <StatCard
           title="Pending approval"
           value={String(stats.pending)}
           icon={Users}
           hint="Awaiting approval"
           tint="warning"
+          loading={users.isLoading && !users.data}
         />
-        <StatCard
-          title="Suspended"
-          value={String(stats.suspended)}
-          icon={Users}
-          hint="Temporarily suspended"
-          tint="slate"
-        />
-        <StatCard title="Invited" value={String(stats.invited)} icon={Users} hint="Pending invites" tint="sky" />
-      </div>
+        <StatCard title="Active" value={String(stats.active)} icon={Users} hint="Working members" tint="teal" loading={users.isLoading && !users.data} />
+        <StatCard title="Invited" value={String(stats.invited)} icon={Users} hint="Pipeline growth" tint="success" loading={users.isLoading && !users.data} />
+      </StatsGrid>
 
       {/* Search + Filters */}
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-52">
-          <Search
-            size={18}
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email…"
-            aria-label="Search team members"
-            className="pl-10"
-          />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Search name, email" label="Search team members" />
 
         <FilterPopover
           label="roles"
@@ -316,27 +294,12 @@ export function TeamManagementPage() {
       </div>
 
       {/* Row Counter + Clear Filters */}
-      <div className="flex min-h-[44px] items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" role="status">
-          {users.data
-            ? `Showing ${paged.length} of ${total} member${total !== 1 ? "s" : ""}`
-            : "Loading members…"}
-        </p>
-        {filtersActive && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            Clear
-          </Button>
-        )}
-      </div>
+      <ResultCount shown={paged.length} total={total} noun="member" nounPlural="members" isLoading={!users.data} loadingLabel="Loading members" filtersActive={filtersActive} onClear={clearFilters} />
 
       {/* Table */}
       <div className="mt-1 flex min-w-0 flex-col gap-3">
         {users.isLoading && !users.data && (
-          <div aria-busy="true" aria-label="Loading team members">
-            {[0, 1, 2].map((i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
+          <ListLoading label="Loading team members" />
         )}
 
         {users.isError && (
@@ -347,35 +310,30 @@ export function TeamManagementPage() {
         )}
 
         {users.data && paged.length === 0 && (
-          <EmptyState
-            title={filtersActive ? "No members match these filters" : "No team members yet"}
-            description={
-              filtersActive
-                ? "Try different filters or search."
-                : "Invite staff and technicians to get started."
-            }
-            actionLabel={filtersActive ? "Clear filters" : undefined}
-            onAction={filtersActive ? clearFilters : undefined}
+          <FilteredEmptyState
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            filteredTitle="No members match these filters"
+            filteredDescription="Try different filters or search."
+            emptyTitle="No team members yet"
+            emptyDescription="Invite staff and technicians to get started."
           />
         )}
 
         {paged.length > 0 && (
           <>
-            <div
-              aria-busy={users.isFetching}
-              className="thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&:hover::-webkit-scrollbar-track]:bg-transparent"
-            >
+            <TableShell shadow>
               <TableLoadingBar active={users.isFetching && paged.length > 0} label="Refreshing team" />
-              <table className="w-full min-w-[840px] border-collapse text-left">
+              <table className={cn(TABLE_BASE, "min-w-[840px]")}>
                 <thead>
                   {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-gray-200 bg-gray-50">
+                    <tr key={hg.id} className={THEAD_ROW}>
                       {hg.headers.map((h) => (
                         <th
                           key={h.id}
                           scope="col"
                           className={cn(
-                            "whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500",
+                            TH_CELL,
                             h.column.id === "row" && "w-12"
                           )}
                           style={{
@@ -393,12 +351,12 @@ export function TeamManagementPage() {
                     <tr
                       key={row.id}
                       className={cn(
-                        "border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60",
+                        TR_ROW,
                         row.original.status === "pending_approval" && "bg-yellow-50/40"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="min-w-0 px-3 py-2.5 align-middle">
+                        <td key={cell.id} className={TD_CELL}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -406,48 +364,10 @@ export function TeamManagementPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableShell>
 
             {/* Pagination Footer */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <RowsSelect
-                value={pageSize}
-                onChange={(n) => {
-                  setPageSize(n);
-                  setPage(1);
-                }}
-              />
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <p className="text-sm text-gray-600">
-                  Page <span className="font-semibold tabular-nums text-gray-900">{page}</span> of{" "}
-                  <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1 || users.isFetching}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft size={16} aria-hidden="true" />
-                    Prev
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= pageCount || users.isFetching}
-                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                    aria-label="Next page"
-                  >
-                    Next
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <PaginationFooter page={page} pageCount={pageCount} isFetching={users.isFetching} onPrev={prevPage} onNext={() => nextPage(pageCount)} pageSize={pageSize} onPageSize={setPageSize} />
           </>
         )}
       </div>

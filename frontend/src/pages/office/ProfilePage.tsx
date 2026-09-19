@@ -1,4 +1,4 @@
-import { DetailRow } from "@/components/shared/DetailRow";
+﻿import { DetailRow } from "@/components/shared/DetailRow";
 import { useAuthStore } from "@/stores/auth.store";
 import { getInitials } from "@/utils/format";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -38,7 +38,7 @@ export function ProfilePage() {
               </Avatar>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-bold text-gray-900">{name}</p>
-                <p className="truncate text-sm text-gray-500">{user?.email}</p>
+                <p className="truncate text-sm text-gray-600">{user?.email}</p>
               </div>
             </div>
           </CardContent>

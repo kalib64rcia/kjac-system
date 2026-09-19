@@ -15,4 +15,7 @@ class SettingOut(BaseModel):
 
 
 class SettingUpdate(BaseModel):
-    setting_value: str = Field(min_length=1, max_length=2000)
+    # Empty string is a legal "cleared/hidden" value for optional content
+    # (2nd phone, mission/vision, GCash name). Required fields are guarded
+    # client-side before any PATCH is sent.
+    setting_value: str = Field(min_length=0, max_length=2000)

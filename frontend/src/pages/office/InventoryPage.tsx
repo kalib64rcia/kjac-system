@@ -1,30 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, Package, PackageX, Search, Warehouse } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Minus, Package, PackageX, Plus, Warehouse } from "lucide-react";
 import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { FilterPopover, RowsSelect, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
+import { FilteredEmptyState } from "@/components/shared/EmptyState";
+import { FilterPopover, ListLoading, PaginationFooter, ResultCount, SearchField, SortHeaderButton, SwitchChip, TABLE_BASE, TableShell, TD_CELL, TH_CELL, THEAD_ROW, TR_ROW, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { CardSkeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { ApiError } from "@/api/errors";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
 import type { InventoryItem } from "@/api/office-ext.api";
 import { useInventory, useInventoryMutation, useMovements } from "@/hooks/useOffice";
-import { toast } from "@/stores/toast.store";
+import { pageCountOf, usePaginationState } from "@/hooks/usePaginationState";
+import { toast, toastMutation } from "@/stores/toast.store";
+import { formatPeso } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_PAGE_SIZE = 20;
+type SortKey = "newest" | "name" | "quantity";
+const SORT_FIRST_DIR: Record<SortKey, "asc" | "desc"> = {
+  newest: "desc",
+  name: "asc",
+  quantity: "asc",
+};
 
 const TYPE_OPTIONS = [
   { id: "aircon_unit", name: "Aircon units" },
@@ -40,13 +45,11 @@ const TYPE_LABELS: Record<string, string> = {
   consumable: "Consumable",
 };
 
-const MOVEMENT_OPTIONS = [
-  { id: "stock_in", name: "Stock in (+)" },
-  { id: "stock_out", name: "Stock out (−)" },
-  { id: "adjustment", name: "Adjustment" },
-  { id: "transfer", name: "Transfer" },
-  { id: "damaged", name: "Damaged" },
-  { id: "returned", name: "Returned" },
+type AdjustDirection = "stock_in" | "stock_out";
+
+const DIRECTION_OPTIONS: { id: AdjustDirection; label: string }[] = [
+  { id: "stock_in", label: "Stock in (+)" },
+  { id: "stock_out", label: "Stock out (\u2212)" },
 ];
 
 function stockTone(item: InventoryItem): "success" | "warning" | "destructive" | "secondary" {
@@ -66,16 +69,17 @@ export function InventoryPage() {
   const [search, setSearch] = useState("");
   const [itemType, setItemType] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize, resetPage, prevPage, nextPage } = usePaginationState();
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
   useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch, itemType, lowOnly, pageSize]);
+    resetPage();
+  }, [debouncedSearch, itemType, lowOnly, pageSize, sortBy, sortDir, resetPage]);
 
   const list = useInventory({
     search: debouncedSearch.trim() || undefined,
@@ -83,14 +87,20 @@ export function InventoryPage() {
     low_stock: lowOnly || undefined,
     page,
     limit: pageSize,
+    sort_by: sortBy,
+    sort_dir: sortDir,
   });
   // Unfiltered total for the stat card (one cheap row).
   const totals = useInventory({ page: 1, limit: 1 });
   const lowTotals = useInventory({ low_stock: true, page: 1, limit: 1 });
+  // Out-of-stock count from the low-stock slice (out ⊆ low while min ≥ 0).
+  const lowItems = useInventory({ low_stock: true, page: 1, limit: 100 });
+  const outCount = (lowItems.data?.items ?? []).filter((i) => i.quantity <= 0).length;
+  const inStock = Math.max(0, (totals.data?.total ?? 0) - (lowTotals.data?.total ?? 0));
 
   const items = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const pageCount = pageCountOf(total, pageSize);
   const selected = items.find((i) => i.id === selectedId) ?? null;
 
   const filtersActive = search.trim() !== "" || itemType !== "" || lowOnly;
@@ -101,6 +111,16 @@ export function InventoryPage() {
   };
 
   const columnHelper = createColumnHelper<InventoryItem>();
+
+  const onSort = (key: Exclude<SortKey, "newest">) => {
+    if (sortBy !== key) {
+      setSortBy(key);
+      setSortDir(SORT_FIRST_DIR[key]);
+    } else {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    }
+  };
+
   const columns = useMemo(
     () => [
       columnHelper.display({
@@ -114,7 +134,9 @@ export function InventoryPage() {
       }),
       columnHelper.display({
         id: "item",
-        header: "Item",
+        header: () => (
+          <SortHeaderButton label="Item" active={sortBy === "name"} ascending={sortDir === "asc"} onSort={() => onSort("name")} />
+        ),
         cell: ({ row }) => {
           const item = row.original;
           return (
@@ -129,7 +151,9 @@ export function InventoryPage() {
       }),
       columnHelper.display({
         id: "stock",
-        header: "Stock",
+        header: () => (
+          <SortHeaderButton label="Stock" active={sortBy === "quantity"} ascending={sortDir === "asc"} onSort={() => onSort("quantity")} />
+        ),
         cell: ({ row }) => {
           const item = row.original;
           return (
@@ -145,7 +169,7 @@ export function InventoryPage() {
         header: "Unit cost",
         cell: ({ row }) => (
           <p className="whitespace-nowrap font-technical text-sm tabular-nums text-gray-900">
-            ₱{Number(row.original.unit_cost).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+            {formatPeso(row.original.unit_cost)}
           </p>
         ),
       }),
@@ -172,13 +196,14 @@ export function InventoryPage() {
         ),
       }),
     ],
-    [page, pageSize],
+    [page, pageSize, sortBy, sortDir],
   );
 
   const table = useReactTable({
     data: items,
     columns,
     manualPagination: true,
+    manualSorting: true,
     pageCount,
     state: { pagination: { pageIndex: page - 1, pageSize } },
     onPaginationChange: (updater) => {
@@ -203,23 +228,21 @@ export function InventoryPage() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => { setLowOnly(true); setPage(1); }}
+            onClick={() => { setLowOnly(true); resetPage(); }}
           >
             Review
           </Button>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard title="Total SKUs" value={String(totals.data?.total ?? "—")} icon={Warehouse} hint="Tracked items" tint="sky" />
-        <StatCard title="Low stock" value={String(lowTotals.data?.total ?? "—")} icon={AlertTriangle} hint="At or below minimum" tint="warning" />
-        <StatCard title="Out of stock" value={String(items.filter((i) => i.quantity <= 0).length)} icon={PackageX} hint="On this page" tint="success" />
-      </div>
+      <StatsGrid>
+        <StatCard title="Total SKUs" value={String(totals.data?.total ?? "")} icon={Warehouse} hint="Tracked items" tint="sky" loading={totals.isLoading && !totals.data} />
+        <StatCard title="Out of stock" value={String(lowItems.data ? outCount : "")} icon={PackageX} hint="Needs urgent reorder" tint="warning" loading={lowItems.isLoading && !lowItems.data} />
+        <StatCard title="Low stock" value={String(lowTotals.data?.total ?? "")} icon={AlertTriangle} hint="At or below minimum" tint="teal" loading={lowTotals.isLoading && !lowTotals.data} />
+        <StatCard title="In stock" value={String(totals.data ? inStock : "")} icon={Package} hint="Healthy levels" tint="success" loading={(totals.isLoading && !totals.data) || (lowTotals.isLoading && !lowTotals.data)} />
+      </StatsGrid>
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-52">
-          <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search SKU or name…" aria-label="Search inventory" className="pl-10" />
-        </div>
+        <SearchField value={search} onChange={setSearch} placeholder="Search SKU or name" label="Search inventory" />
         <FilterPopover
           label="types"
           display={TYPE_LABELS[itemType] ?? "All types"}
@@ -228,50 +251,44 @@ export function InventoryPage() {
           value={itemType}
           onPick={setItemType}
         />
-        <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-900">
-          <Switch checked={lowOnly} onCheckedChange={(v) => setLowOnly(v)} aria-label="Show low stock only" />
-          Low stock only
-        </label>
+        <SwitchChip label="Low stock only" checked={lowOnly} onCheckedChange={setLowOnly} />
         <Button type="button" onClick={() => { setCreating(true); setSelectedId(null); }}>
           <Package size={16} aria-hidden="true" data-icon="inline-start" />
           Add item
         </Button>
       </div>
 
-      <div className="flex min-h-[44px] items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" role="status">
-          {list.data ? (
-            <>Showing <span className="font-semibold tabular-nums text-gray-900">{items.length}</span> of <span className="font-semibold tabular-nums text-gray-900">{total}</span> {total === 1 ? "item" : "items"}</>
-          ) : ("Loading inventory…")}
-        </p>
-        {filtersActive && (<Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>)}
-      </div>
+      <ResultCount shown={items.length} total={total} noun="item" nounPlural="items" isLoading={!list.data} loadingLabel="Loading inventory" filtersActive={filtersActive} onClear={clearFilters} />
 
       <div className="mt-1 flex min-w-0 flex-col gap-3">
         {list.isLoading && !list.data && (
-          <div aria-busy="true" aria-label="Loading inventory">{[0, 1, 2].map((i) => (<CardSkeleton key={i} />))}</div>
+          <ListLoading label="Loading inventory" />
         )}
         {list.isError && (
           <ErrorCard message={list.error instanceof Error ? list.error.message : "Could not load inventory."} onRetry={() => void list.refetch()} />
         )}
         {list.data && items.length === 0 && (
-          <EmptyState
-            title={filtersActive ? "No items match these filters" : "No inventory yet"}
-            description={filtersActive ? "Try another search, type, or clear the low-stock toggle." : "Add your first SKU to start tracking stock."}
-            actionLabel={filtersActive ? "Clear filters" : "Add item"}
-            onAction={filtersActive ? clearFilters : () => setCreating(true)}
+          <FilteredEmptyState
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            filteredTitle="No items match these filters"
+            filteredDescription="Try another search, type, or clear the low-stock toggle."
+            emptyTitle="No inventory yet"
+            emptyDescription="Add your first SKU to start tracking stock."
+            actionLabel="Add item"
+            onAction={() => setCreating(true)}
           />
         )}
         {items.length > 0 && (
           <>
-            <div className="thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white [&::-webkit-scrollbar]:h-1.5">
+            <TableShell>
               <TableLoadingBar active={list.isFetching && items.length > 0} label="Refreshing inventory" />
-              <table className="w-full min-w-[840px] border-collapse text-left">
+              <table className={cn(TABLE_BASE, "min-w-[840px]")}>
                 <thead>
                   {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-gray-200 bg-gray-50">
+                    <tr key={hg.id} className={THEAD_ROW}>
                       {hg.headers.map((h) => (
-                        <th key={h.id} scope="col" className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <th key={h.id} scope="col" className={TH_CELL}>
                           {flexRender(h.column.columnDef.header, h.getContext())}
                         </th>
                       ))}
@@ -280,9 +297,9 @@ export function InventoryPage() {
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60">
+                    <tr key={row.id} className={TR_ROW}>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="min-w-0 px-3 py-2.5 align-middle">
+                        <td key={cell.id} className={TD_CELL}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -290,23 +307,8 @@ export function InventoryPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <RowsSelect value={pageSize} onChange={(n) => { setPageSize(n); setPage(1); }} />
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <p className="text-sm text-gray-600">
-                  Page <span className="font-semibold tabular-nums text-gray-900">{page}</span> of <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" disabled={page <= 1 || list.isFetching} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
-                    <ChevronLeft size={16} aria-hidden="true" /> Prev
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={page >= pageCount || list.isFetching} onClick={() => setPage((p) => Math.min(pageCount, p + 1))} aria-label="Next page">
-                    Next <ChevronRight size={16} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </TableShell>
+            <PaginationFooter page={page} pageCount={pageCount} isFetching={list.isFetching} onPrev={prevPage} onNext={() => nextPage(pageCount)} pageSize={pageSize} onPageSize={setPageSize} />
           </>
         )}
       </div>
@@ -343,7 +345,7 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
 
   const [form, setForm] = useState({ sku: "", item_type: "replacement_part", name: "", quantity: "0", minimum_stock_level: "10", unit_cost: "", selling_price: "", storage_location: "" });
   const [edit, setEdit] = useState({ minimum_stock_level: "", unit_cost: "", selling_price: "", storage_location: "" });
-  const [adjust, setAdjust] = useState({ movement_type: "stock_in", quantity: "", reason: "" });
+  const [adjust, setAdjust] = useState<{ direction: AdjustDirection; qty: string; reason: string }>({ direction: "stock_in", qty: "1", reason: "" });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -354,7 +356,7 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
         selling_price: item.selling_price == null ? "" : String(item.selling_price),
         storage_location: "",
       });
-      setAdjust({ movement_type: "stock_in", quantity: "", reason: "" });
+      setAdjust({ direction: "stock_in", qty: "1", reason: "" });
     }
     if (creating) {
       setForm({ sku: "", item_type: "replacement_part", name: "", quantity: "0", minimum_stock_level: "10", unit_cost: "", selling_price: "", storage_location: "" });
@@ -364,76 +366,76 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
   const busy = mutations.create.isPending || mutations.update.isPending || mutations.adjust.isPending || mutations.remove.isPending;
 
   const submitCreate = async () => {
-    try {
-      await mutations.create.mutateAsync({
-        sku: form.sku.trim(),
-        item_type: form.item_type,
-        name: form.name.trim(),
-        quantity: Number(form.quantity) || 0,
-        minimum_stock_level: Number(form.minimum_stock_level) || 0,
-        unit_cost: Number(form.unit_cost),
-        selling_price: form.selling_price === "" ? null : Number(form.selling_price),
-        storage_location: form.storage_location.trim() || null,
-      });
-      onSaved();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create item.");
-    }
+    const created = await toastMutation(() => mutations.create.mutateAsync({
+      sku: form.sku.trim(),
+      item_type: form.item_type,
+      name: form.name.trim(),
+      quantity: Number(form.quantity) || 0,
+      minimum_stock_level: Number(form.minimum_stock_level) || 0,
+      unit_cost: Number(form.unit_cost),
+      selling_price: form.selling_price === "" ? null : Number(form.selling_price),
+      storage_location: form.storage_location.trim() || null,
+    }), { error: "Could not create item." });
+    if (created === null) return;
+    onSaved();
   };
 
   const submitEdit = async () => {
     if (!item) return;
-    try {
-      await mutations.update.mutateAsync({
-        id: item.id,
-        payload: {
-          minimum_stock_level: edit.minimum_stock_level === "" ? undefined : Number(edit.minimum_stock_level),
-          unit_cost: edit.unit_cost === "" ? undefined : Number(edit.unit_cost),
-          selling_price: edit.selling_price === "" ? null : Number(edit.selling_price),
-          storage_location: edit.storage_location.trim() === "" ? undefined : edit.storage_location.trim(),
-        },
-      });
-      onSaved();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save changes.");
-    }
+    const updated = await toastMutation(() => mutations.update.mutateAsync({
+      id: item.id,
+      payload: {
+        minimum_stock_level: edit.minimum_stock_level === "" ? undefined : Number(edit.minimum_stock_level),
+        unit_cost: edit.unit_cost === "" ? undefined : Number(edit.unit_cost),
+        selling_price: edit.selling_price === "" ? null : Number(edit.selling_price),
+        storage_location: edit.storage_location.trim() === "" ? undefined : edit.storage_location.trim(),
+      },
+    }), { error: "Could not save changes." });
+    if (updated === null) return;
+    onSaved();
+  };
+
+  const adjustMagnitude = Math.abs(Math.floor(Number(adjust.qty))) || 0;
+  const adjustSigned = adjust.direction === "stock_in" ? adjustMagnitude : -adjustMagnitude;
+  const adjustPreview = item ? item.quantity + adjustSigned : 0;
+  const adjustQtyValid = adjust.qty.trim() !== "" && Number.isInteger(adjustMagnitude) && adjustMagnitude >= 1;
+  const adjustOverdraw = item != null && adjust.direction === "stock_out" && adjustQtyValid && adjustMagnitude > item.quantity;
+
+  const clampQty = (next: number) => {
+    const clamped = Math.max(1, Math.floor(next) || 1);
+    setAdjust((prev) => ({ ...prev, qty: String(clamped) }));
   };
 
   const submitAdjust = async () => {
-    if (!item) return;
-    try {
-      await mutations.adjust.mutateAsync({
-        id: item.id,
-        payload: {
-          movement_type: adjust.movement_type,
-          quantity: Number(adjust.quantity),
-          reason: adjust.reason.trim() || null,
-        },
-      });
-      toast.success("Stock adjusted.");
-      setAdjust({ movement_type: "stock_in", quantity: "", reason: "" });
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not adjust stock.");
-    }
+    if (!item || !adjustQtyValid || adjustOverdraw) return;
+    const adjusted = await toastMutation(() => mutations.adjust.mutateAsync({
+      id: item.id,
+      payload: {
+        movement_type: adjust.direction,
+        quantity: adjustSigned,
+        reason: adjust.reason.trim() || null,
+      },
+    }), { success: "Stock adjusted.", error: "Could not adjust stock." });
+    if (adjusted === null) return;
+    setAdjust({ direction: "stock_in", qty: "1", reason: "" });
   };
 
   const submitDelete = async () => {
     if (!item) return;
-    try {
-      await mutations.remove.mutateAsync(item.id);
-      setConfirmDelete(false);
-      onSaved();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete item.");
-    }
+    const removed = await toastMutation(() => mutations.remove.mutateAsync(item.id), { error: "Could not delete item." });
+    if (removed === null) return;
+    setConfirmDelete(false);
+    onSaved();
   };
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent label={creating ? "Add inventory item" : "Inventory item details"} side="right" onClose={onClose} className="w-[420px] max-w-[92vw] overflow-y-auto p-6">
-        <SheetTitle className="text-lg font-semibold text-gray-900">
-          {creating ? "Add item" : item ? <span className="font-technical">{item.sku}</span> : ""}
-        </SheetTitle>
+      <SheetContent label={creating ? "Add inventory item" : "Inventory item details"} side="right" onClose={onClose} className="w-[420px] max-w-[92vw] p-0">
+        <DrawerHeader
+          title={creating ? "Add item" : item ? <span className="font-technical">{item.sku}</span> : ""}
+          onClose={onClose}
+        />
+        <div className="thin-scroll flex-1 overflow-y-auto p-6">
         {creating ? (
           <div className="mt-4 flex flex-col gap-4">
             <Field label="SKU *"><Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="CAP-001" disabled={busy} /></Field>
@@ -453,7 +455,7 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
             </div>
             <Field label="Storage location"><Input value={form.storage_location} onChange={(e) => setForm({ ...form, storage_location: e.target.value })} placeholder="Shelf A-1" disabled={busy} /></Field>
             <Button type="button" onClick={() => void submitCreate()} disabled={busy || !form.sku.trim() || !form.name.trim() || form.unit_cost === ""}>
-              {mutations.create.isPending ? "Adding…" : "Add item"}
+              {mutations.create.isPending ? "Adding..." : "Add item"}
             </Button>
           </div>
         ) : item ? (
@@ -479,31 +481,92 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
                 <Field label="Location"><Input value={edit.storage_location} onChange={(e) => setEdit({ ...edit, storage_location: e.target.value })} placeholder="Unchanged" disabled={busy} /></Field>
               </div>
               <Button type="button" variant="outline" onClick={() => void submitEdit()} disabled={busy}>
-                {mutations.update.isPending ? "Saving…" : "Save changes"}
+                {mutations.update.isPending ? "Saving..." : "Save changes"}
               </Button>
             </section>
 
             <section aria-label="Adjust stock" className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3">
               <h3 className="text-sm font-semibold text-gray-900">Adjust stock</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Movement">
-                  <select value={adjust.movement_type} onChange={(e) => setAdjust({ ...adjust, movement_type: e.target.value })} disabled={busy} className="min-h-[44px] cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-primary-600 focus:outline-none">
-                    {MOVEMENT_OPTIONS.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
-                  </select>
-                </Field>
-                <Field label="Qty (signed)" hint="e.g. 10 or -2">
-                  <Input type="number" step="1" value={adjust.quantity} onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })} placeholder="+10 / -2" disabled={busy} />
-                </Field>
-              </div>
-              <Field label="Reason"><Input value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} placeholder="PO-123, booking #456…" disabled={busy} /></Field>
-              <Button type="button" onClick={() => void submitAdjust()} disabled={busy || adjust.quantity.trim() === "" || Number.isNaN(Number(adjust.quantity))}>
-                {mutations.adjust.isPending ? "Adjusting…" : "Apply adjustment"}
+              <Field label="Movement">
+                <div role="group" aria-label="Movement direction" className="grid grid-cols-2 gap-2">
+                  {DIRECTION_OPTIONS.map((o) => {
+                    const active = adjust.direction === o.id;
+                    return (
+                      <Button
+                        key={o.id}
+                        type="button"
+                        variant={active ? "default" : "outline"}
+                        aria-pressed={active}
+                        onClick={() => setAdjust((prev) => ({ ...prev, direction: o.id }))}
+                        disabled={busy}
+                      >
+                        {o.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </Field>
+              <Field
+                label="Quantity"
+                hint={adjust.direction === "stock_in" ? "Adds to stock." : `On hand ${item.quantity}.`}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Decrease quantity"
+                    onClick={() => clampQty(adjustMagnitude - 1)}
+                    disabled={busy || adjustMagnitude <= 1}
+                  >
+                    <Minus size={16} aria-hidden="true" />
+                  </Button>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label="Quantity"
+                    value={adjust.qty}
+                    onChange={(e) => setAdjust((prev) => ({ ...prev, qty: e.target.value.replace(/[^\d]/g, "").slice(0, 5) }))}
+                    onBlur={() => { if (adjust.qty.trim() !== "") clampQty(adjustMagnitude); }}
+                    placeholder="1"
+                    disabled={busy}
+                    className="text-center font-technical tabular-nums"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Increase quantity"
+                    onClick={() => clampQty((adjustMagnitude || 0) + 1)}
+                    disabled={busy}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </Button>
+                </div>
+                {adjustOverdraw && (
+                  <p role="alert" className="text-xs text-error-600">
+                    Only {item.quantity} on hand — lower the quantity.
+                  </p>
+                )}
+              </Field>
+              <p className="text-xs text-gray-600" aria-live="polite">
+                On hand <span className="font-technical font-semibold tabular-nums text-gray-900">{item.quantity}</span>
+                {" → new "}
+                <span className={cn("font-technical font-semibold tabular-nums", adjustSigned >= 0 ? "text-success-700" : "text-error-600")}>
+                  {adjustQtyValid ? adjustPreview : "—"} ({adjustSigned >= 0 ? `+${adjustSigned}` : adjustSigned})
+                </span>
+              </p>
+              <Field label="Reason"><Input value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} placeholder="PO-123, booking #456" disabled={busy} /></Field>
+              <Button type="button" onClick={() => void submitAdjust()} disabled={busy || !adjustQtyValid || adjustOverdraw}>
+                {mutations.adjust.isPending ? "Adjusting..." : adjust.direction === "stock_in" ? "Apply stock in" : "Apply stock out"}
               </Button>
             </section>
 
             <section aria-label="Movements" className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold text-gray-900">Recent movements</h3>
-              {movements.isLoading && <p className="text-sm text-gray-600">Loading…</p>}
+              {movements.isLoading && <p className="text-sm text-gray-600">Loading...</p>}
               {movements.data && movements.data.items.length === 0 && (
                 <p className="text-sm text-gray-600">No movements recorded yet.</p>
               )}
@@ -525,7 +588,7 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
             <ConfirmDialog
               spec={confirmDelete ? {
                 title: "Delete this item?",
-                body: `“${item.name}” (${item.sku}) will be removed from intake. Movement history is kept.`,
+                body: `"${item.name}" (${item.sku}) will be removed from intake. Movement history is kept.`,
                 confirmLabel: "Delete",
                 destructive: true,
                 onConfirm: () => void submitDelete(),
@@ -534,6 +597,7 @@ function ItemSheet({ item, creating, onClose, onSaved }: {
             />
           </div>
         ) : null}
+        </div>
       </SheetContent>
     </Sheet>
   );

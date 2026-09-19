@@ -1,28 +1,25 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PillTabs } from "@/components/shared/FilterPopover";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/api/errors";
 import type { Brand, ServiceDetail } from "@/types/catalog.types";
 import { useAdminBrands, useAdminServices, useCatalogMutation } from "@/hooks/useOffice";
-import { toast } from "@/stores/toast.store";
-import { cn } from "@/lib/utils";
+import { toast, toastMutation } from "@/stores/toast.store";
+import { formatPeso } from "@/utils/format";
 
 type Tab = "services" | "brands";
-
-function peso(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
-}
 
 /** Catalog board: shared by owner + staff routes. Services + brands CRUD (public site reads live). */
 export function CatalogPage() {
@@ -31,23 +28,16 @@ export function CatalogPage() {
   return (
     <div className="min-w-0">
       <PageHeader title="Catalog" description="Services and brands shown on the public site. Changes go live immediately." />
-      <div role="tablist" aria-label="Catalog sections" className="flex gap-2">
-        {(["services", "brands"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "min-h-[44px] cursor-pointer rounded-lg px-4 text-sm font-semibold transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600",
-              tab === t ? "bg-primary-400 text-white hover:bg-primary-500" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
-            )}
-          >
-            {t === "services" ? "Services" : "Brands"}
-          </button>
-        ))}
+      <div className="flex gap-2">
+        <PillTabs
+          label="Catalog sections"
+          options={[
+            { id: "services" as Tab, name: "Services" },
+            { id: "brands" as Tab, name: "Brands" },
+          ]}
+          value={tab}
+          onPick={setTab}
+        />
       </div>
       <div className="mt-4" role="tabpanel">
         {tab === "services" ? <ServicesPanel /> : <BrandsPanel />}
@@ -66,14 +56,13 @@ function ServicesPanel() {
 
   const remove = async () => {
     if (!confirmDelete) return;
-    try {
-      await mutations.deleteService.mutateAsync(confirmDelete.id);
-      toast.success("Service deleted.");
-      setConfirmDelete(null);
-      setEditing(null);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete service.");
-    }
+    const removed = await toastMutation(() => mutations.deleteService.mutateAsync(confirmDelete.id), {
+      success: "Service deleted.",
+      error: "Could not delete service.",
+    });
+    if (removed === null) return;
+    setConfirmDelete(null);
+    setEditing(null);
   };
 
   return (
@@ -108,8 +97,8 @@ function ServicesPanel() {
                 </p>
                 <p className="mt-0.5 truncate font-technical text-xs tabular-nums text-gray-600">{s.slug}</p>
                 <p className="mt-1 text-sm tabular-nums text-gray-900">
-                  Base <span className="font-technical font-semibold">{peso(s.base_price)}</span>
-                  {" "}· down <span className="font-technical font-semibold">{peso(s.down_payment_amount)}</span>
+                  Base <span className="font-technical font-semibold">{s.base_price == null ? "—" : formatPeso(s.base_price)}</span>
+                  {" "}· down <span className="font-technical font-semibold">{s.down_payment_amount == null ? "—" : formatPeso(s.down_payment_amount)}</span>
                   <span className="text-gray-600"> ({s.down_payment_type === "percentage" ? "of base" : "fixed"})</span>
                   {s.estimated_duration_display && <span className="text-gray-600"> · {s.estimated_duration_display}</span>}
                 </p>
@@ -211,8 +200,9 @@ function ServiceSheet({ service, creating, onClose }: { service: ServiceDetail |
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent label={creating ? "Add service" : "Edit service"} side="right" onClose={onClose} className="w-[440px] max-w-[94vw] overflow-y-auto p-6">
-        <SheetTitle className="text-lg font-semibold text-gray-900">{creating ? "Add service" : "Edit service"}</SheetTitle>
+      <SheetContent label={creating ? "Add service" : "Edit service"} side="right" onClose={onClose} className="w-[440px] max-w-[94vw] p-0">
+        <DrawerHeader title={creating ? "Add service" : "Edit service"} onClose={onClose} />
+        <div className="thin-scroll flex-1 overflow-y-auto p-6">
         <div className="mt-4 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Name *</Label>
@@ -274,6 +264,7 @@ function ServiceSheet({ service, creating, onClose }: { service: ServiceDetail |
             {busy ? "Saving…" : creating ? "Create service" : "Save changes"}
           </Button>
         </div>
+        </div>
       </SheetContent>
     </Sheet>
   );
@@ -327,13 +318,12 @@ function BrandsPanel() {
 
   const remove = async () => {
     if (!confirmDelete) return;
-    try {
-      await mutations.deleteBrand.mutateAsync(confirmDelete.id);
-      toast.success("Brand deleted.");
-      setConfirmDelete(null);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete brand.");
-    }
+    const removed = await toastMutation(() => mutations.deleteBrand.mutateAsync(confirmDelete.id), {
+      success: "Brand deleted.",
+      error: "Could not delete brand.",
+    });
+    if (removed === null) return;
+    setConfirmDelete(null);
   };
 
   const open = editing !== null;
@@ -379,8 +369,9 @@ function BrandsPanel() {
         </Card>
       ))}
       <Sheet open={open} onOpenChange={(v) => { if (!v) setEditing(null); }}>
-        <SheetContent label={editing === "new" ? "Add brand" : "Edit brand"} side="right" onClose={() => setEditing(null)} className="w-[400px] max-w-[92vw] overflow-y-auto p-6">
-          <SheetTitle className="text-lg font-semibold text-gray-900">{editing === "new" ? "Add brand" : "Edit brand"}</SheetTitle>
+        <SheetContent label={editing === "new" ? "Add brand" : "Edit brand"} side="right" onClose={() => setEditing(null)} className="w-[400px] max-w-[92vw] p-0">
+          <DrawerHeader title={editing === "new" ? "Add brand" : "Edit brand"} onClose={() => setEditing(null)} />
+          <div className="thin-scroll flex-1 overflow-y-auto p-6">
           <div className="mt-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Name *</Label>
@@ -412,6 +403,7 @@ function BrandsPanel() {
             <Button type="button" onClick={() => void submit()} disabled={!valid || busy}>
               {busy ? "Saving…" : editing === "new" ? "Create brand" : "Save changes"}
             </Button>
+          </div>
           </div>
         </SheetContent>
       </Sheet>

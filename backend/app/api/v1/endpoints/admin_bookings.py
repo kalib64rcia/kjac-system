@@ -69,5 +69,8 @@ async def cancel_admin_booking(
     """Office cancel: no ownership check (office authority); the audit stamp
     records which staffer cancelled. Refund tiers + atomic claim shared."""
     booking = await bookings.get_booking_or_404(db, booking_id)
-    result = await bookings.cancel_booking(db, booking, admin, payload.reason)
+    result = await bookings.cancel_booking(
+        db, booking, admin, payload.reason,
+        payload.refund_to_number, payload.refund_to_name,
+    )
     return CancelResponse.model_validate(result)

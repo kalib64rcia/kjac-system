@@ -72,22 +72,6 @@ export function useBarangays(cityCode: string | null) {
   });
 }
 
-export function useSlotAvailability(from: string, to: string) {
-  return useQuery({
-    queryKey: queryKeys.booking.availability(from, to),
-    queryFn: () => bookingApi.availability(from, to),
-    staleTime: 2 * 60 * 1000,
-    retry: 1,
-  });
-}
-
-export function useCreateHold() {
-  return useMutation({
-    mutationFn: ({ date, time }: { date: string; time: string }) =>
-      bookingApi.createHold(date, time),
-  });
-}
-
 export function useTrackBooking(referenceId: string, email: string) {
   return useQuery({
     queryKey: queryKeys.booking.track(referenceId, email),

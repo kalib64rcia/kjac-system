@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Clock, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { ApiError } from "@/api/errors";
 import { toast } from "@/stores/toast.store";
 import { formatPeso } from "@/utils/format";
 import { useCountdown } from "@/hooks/useCountdown";
+import { useLandingContent } from "@/hooks/usePublic";
 import type { TrackBookingResponse } from "@/types/booking.types";
 
 const GCASH_RE = /^\d{13}$/;
@@ -19,12 +21,14 @@ export function UploadPaymentModal({
   open,
   onClose,
   onDone,
+  onFail,
 }: {
   booking: TrackBookingResponse;
   email: string;
   open: boolean;
   onClose: () => void;
   onDone: () => void;
+  onFail?: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [gcashRef, setGcashRef] = useState("");
@@ -32,6 +36,7 @@ export function UploadPaymentModal({
   const [fileError, setFileError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const { label } = useCountdown(booking.expires_at);
+  const content = useLandingContent();
 
   const submit = async () => {
     let ok = true;
@@ -58,10 +63,18 @@ export function UploadPaymentModal({
       onClose();
       onDone();
     } catch (err) {
-      toast.error(
-        "Upload failed",
-        err instanceof ApiError ? err.message : "Check your connection and try again.",
-      );
+      if (err instanceof ApiError && (err.status === 400 || err.status === 409)) {
+        toast.error(
+          "Cannot upload now",
+          "Schedule changed or deadline passed. Check track status and try again.",
+        );
+      } else {
+        toast.error(
+          "Upload failed",
+          err instanceof ApiError ? err.message : "Check your connection and try again.",
+        );
+      }
+      onFail?.();
     } finally {
       setBusy(false);
     }
@@ -78,10 +91,28 @@ export function UploadPaymentModal({
         {" · "}Down payment:{" "}
         <span className="font-technical font-semibold">{formatPeso(booking.down_payment_amount)}</span>
       </p>
-      <p className="mt-1 text-sm font-semibold text-warning-700">⏰ Time remaining: {label}</p>
+      {booking.expires_at && (
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-warning-700">
+          <Timer size={16} aria-hidden="true" />
+          <span>Time remaining: {label}</span>
+        </p>
+      )}
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-600">
+        <Clock size={16} aria-hidden="true" />
+        <span>Pay early for on time arrival. Late payment can mean late arrival.</span>
+      </p>
       <div className="mt-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
         <p className="font-semibold text-gray-900">Step 1: Send payment via GCash</p>
-        <p className="mt-1">Send the exact down payment to the business GCash account shown on your booking confirmation, then screenshot the receipt.</p>
+        {content.data?.gcash_account_number ? (
+          <p className="mt-1">
+            Send the exact down payment to{" "}
+            <span className="font-technical font-semibold tabular-nums">{content.data.gcash_account_number}</span>
+            {content.data.gcash_account_name && <> ({content.data.gcash_account_name})</>},
+            then screenshot the receipt.
+          </p>
+        ) : (
+          <p className="mt-1">Send the exact down payment to the business GCash account shown on your booking confirmation, then screenshot the receipt.</p>
+        )}
         <p className="mt-3 font-semibold text-gray-900">Step 2: Upload the screenshot</p>
       </div>
       <div className="mt-4">

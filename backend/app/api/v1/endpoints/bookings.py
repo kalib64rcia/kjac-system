@@ -114,7 +114,10 @@ async def cancel_booking(
 ) -> CancelResponse:
     booking = await bookings.get_booking_or_404(db, booking_id)
     bookings.assert_owner(booking, user, str(payload.email) if payload.email else None)
-    result = await bookings.cancel_booking(db, booking, user, payload.reason)
+    result = await bookings.cancel_booking(
+        db, booking, user, payload.reason,
+        payload.refund_to_number, payload.refund_to_name,
+    )
     return CancelResponse.model_validate(result)
 
 
@@ -181,26 +184,58 @@ async def unschedule_booking(
     """
     if user is None or user.role not in ("owner", "staff"):
         raise AppError("PERM_001", "Only admin staff can unschedule bookings.", 403)
-    
+
     booking = await bookings.get_booking_or_404(db, booking_id)
-    
+
     if booking.status not in ("proposed", "scheduled"):
         raise AppError(
             "BOOKING_009",
             f"Only proposed or scheduled bookings can be unscheduled. Current status: {booking.status}.",
             409
         )
-    
-    # Transition back to submitted status
-    from app.models.bookings import BookingStatusHistory
+
+    # Atomic withdraw: the status flip, the pending-payment guard, and the
+    # voiding happen in one transaction, so a receipt landing mid-action
+    # either blocks the withdraw or fails cleanly against submitted status.
+    from sqlalchemy import exists, select, update
+
+    from app.models.bookings import Booking, BookingStatusHistory
+    from app.models.financial import Payment
+
     old_status = booking.status
-    booking.status = "submitted"
-    booking.proposed_at = None
-    booking.proposed_at = None
-    booking.scheduled_at = None
-    booking.preferred_time = None  # Clear the time slot
-    booking.flex_window = None  # Clear the flex window too
-    
+    claimed = await db.execute(
+        update(Booking)
+        .where(
+            Booking.id == booking.id,
+            Booking.status.in_(("proposed", "scheduled")),
+            ~exists(
+                select(Payment.id).where(
+                    Payment.booking_id == booking.id,
+                    Payment.status == "pending",
+                )
+            ),
+        )
+        .values(
+            status="submitted",
+            proposed_at=None,
+            scheduled_at=None,
+            preferred_time=None,
+            flex_window=None,
+        )
+    )
+    if claimed.rowcount == 0:
+        raise AppError(
+            "BOOKING_009",
+            "Schedule changed. A payment may be under review. Refresh and try again.",
+            409,
+        )
+    # Void any waiting receipts left by older flows so no dead Verify lingers.
+    await db.execute(
+        update(Payment)
+        .where(Payment.booking_id == booking.id, Payment.status == "pending")
+        .values(status="rejected", rejection_reason="Schedule withdrawn by office.")
+    )
+
     # Record status change in history
     db.add(
         BookingStatusHistory(
@@ -210,6 +245,27 @@ async def unschedule_booking(
             notes="Admin removed booking from schedule",
         )
     )
-    
+
+    await db.flush()
+    await bookings._notify_customer(
+        booking, "booking_schedule_withdrawn", "Schedule withdrawn",
+        f"{booking.reference_id}: the proposed schedule was withdrawn. "
+        "A new proposal will follow.",
+        db,
+    )
+    # Direct email to the booking address (guests have no inbox).
+    # Best effort, never breaks the withdraw.
+    from app.services.email_service import EmailService
+
+    try:
+        EmailService().send(
+            booking.customer_email,
+            "KJAC: Schedule withdrawn",
+            f"{booking.reference_id}: the proposed schedule was withdrawn. "
+            "A new proposal will follow.",
+        )
+    except Exception:
+        pass
+
     await db.commit()
     return {"success": True}

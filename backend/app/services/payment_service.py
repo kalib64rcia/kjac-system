@@ -1,8 +1,10 @@
-"""Payment upload (GCash manual verification, Phase 1) + admin verification.
+"""Payment upload (GCash manual verification) + admin verification.
 
-Upload requires booking in submitted state, amount == down payment, and a
-receipt image. Approve moves pending→confirmed; reject reverts to submitted
-with a fresh 3h expiry (CONTRACTS.md C6).
+Upload requires booking in proposed/scheduled state (schedule-before-payment
+flow: admin proposes → customer accepts by paying), amount == down payment,
+and a receipt image. Upload moves proposed→scheduled (accepted, awaiting
+verification). Approve moves scheduled→confirmed; reject returns to
+scheduled when a time is set (submitted otherwise) with a fresh expiry.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -12,13 +14,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.models.bookings import BookingStatusHistory
 from app.models.financial import Payment
 from app.services.booking_service import (
     _notify_admins,
     _notify_customer,
+    _setting,
     get_booking_or_404,
 )
 from app.services.storage_service import StorageService
+from app.utils.time_rules import MANILA_TZ
 
 
 async def upload_payment(
@@ -35,8 +40,13 @@ async def upload_payment(
     payment_method: str,
 ) -> Payment:
     booking = await get_booking_or_404(db, booking_id)
-    if booking.status != "submitted":
-        raise AppError("PAYMENT_001", "Payment can only be uploaded for submitted bookings.", 400)
+    if booking.status not in ("proposed", "scheduled"):
+        raise AppError(
+            "PAYMENT_001",
+            "Payment can only be uploaded after a schedule is proposed. "
+            f"Current status: {booking.status}.",
+            400,
+        )
     if abs(amount - float(booking.down_payment_amount)) > 0.01:
         raise AppError(
             "PAYMENT_001",
@@ -46,6 +56,18 @@ async def upload_payment(
         raise AppError("PAYMENT_001", "GCash reference number is required.", 400)
 
     key = storage.save_receipt(booking_id, filename, data)
+    # Re-upload supersedes: an older pending row stays as audit trail but leaves
+    # exactly one live pending receipt so the queue never doubles.
+    prior = await db.execute(
+        select(Payment).where(
+            Payment.booking_id == booking.id,
+            Payment.status == "pending",
+        )
+    )
+    superseded = prior.scalars().all()
+    for old in superseded:
+        old.status = "rejected"
+        old.rejection_reason = "Superseded by newer upload."
     payment = Payment(
         booking_id=booking.id,
         customer_id=user_id if user_id is not None else booking.customer_id,
@@ -57,11 +79,28 @@ async def upload_payment(
         status="pending",
     )
     db.add(payment)
-    booking.status = "pending"
-    booking.expires_at = None  # pre-expiry upload clears the countdown
+    # Upload = customer accepts the proposal: proposed→scheduled (awaiting
+    # verification). Re-uploads on scheduled stay scheduled.
+    old_status = booking.status
+    booking.status = "scheduled"
+    booking.expires_at = None  # under review: clear the payment countdown
+    # Always log the upload so re-uploads are traceable with exact times.
+    db.add(
+        BookingStatusHistory(
+            booking_id=booking.id,
+            old_status=old_status,
+            new_status="scheduled",
+            notes=(
+                "Customer re-uploaded payment receipt"
+                if old_status == "scheduled" or superseded
+                else "Customer uploaded payment receipt"
+            ),
+        )
+    )
     await db.flush()
     await _notify_admins(
-        db, "payment_uploaded", "Payment uploaded",
+        db, "payment_uploaded",
+        "Payment re-uploaded" if superseded else "Payment uploaded",
         f"{booking.reference_id}: {amount:.2f} ({payment_method})", booking.id,
     )
     await db.commit()
@@ -146,19 +185,63 @@ async def verify_payment(
         raise AppError("PAYMENT_002", "Payment already reviewed.", 409)
 
     if approve:
-        if booking.status == "pending":
+        # "pending" covers legacy rows uploaded before the schedule-first flow.
+        if booking.status in ("pending", "scheduled"):
             booking.status = "confirmed"
         await _notify_customer(
             booking, "payment_verified", "Payment verified",
             f"{booking.reference_id} is confirmed.", db,
         )
+        if booking.customer_id is None:
+            # Guests have no inbox: email directly (best effort, never breaks).
+            from app.services.email_service import EmailService
+
+            try:
+                EmailService().send(
+                    booking.customer_email,
+                    "KJAC: Payment verified",
+                    f"{booking.reference_id} is confirmed.",
+                )
+            except Exception:
+                pass
     else:
-        booking.status = "submitted"  # C6: back to submitted + fresh 3h
-        booking.expires_at = now + timedelta(hours=3)
+        # Back to awaiting payment when a schedule exists, else to the pool.
+        if booking.preferred_time:
+            booking.status = "scheduled"
+        else:
+            booking.status = "submitted"
+        # Pay deadline is the proposed start itself, not a fixed window.
+        try:
+            manila_start = datetime.combine(
+                booking.preferred_date, booking.preferred_time
+            ).replace(tzinfo=MANILA_TZ) if booking.preferred_time else None
+            if manila_start is not None and manila_start > datetime.now(MANILA_TZ):
+                booking.expires_at = manila_start.astimezone(UTC)
+            else:
+                raise ValueError("start passed")
+        except ValueError:
+            try:
+                hours = int(await _setting(db, "booking_expiration_hours", "3"))
+            except ValueError:
+                hours = 3
+            booking.expires_at = now + timedelta(hours=max(hours, 1))
         await _notify_customer(
             booking, "payment_rejected", "Payment rejected",
             f"{booking.reference_id}: {rejection_reason}", db,
         )
+        if booking.customer_id is None:
+            # Guests have no inbox: email directly (best effort, never breaks).
+            from app.services.email_service import EmailService
+
+            try:
+                EmailService().send(
+                    booking.customer_email,
+                    "KJAC: Payment rejected",
+                    f"{booking.reference_id}: {rejection_reason} "
+                    "Upload again before the start.",
+                )
+            except Exception:
+                pass
     await db.commit()
     await db.refresh(payment)
     return payment

@@ -1,27 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, ChevronLeft, ChevronRight, Clock, HandCoins, Search, Wallet } from "lucide-react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { BadgeCheck, Clock, HandCoins, Info, Wallet } from "lucide-react";
 import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { FilterPopover, RowsSelect, TableLoadingBar } from "@/components/shared/FilterPopover";
+import { FilteredEmptyState } from "@/components/shared/EmptyState";
+import { FilterPopover, ListLoading, PaginationFooter, ResultCount, SearchField, SortHeaderButton, TABLE_BASE, TableShell, TD_CELL, TH_CELL, THEAD_ROW, TR_ROW, TableLoadingBar, useDebouncedValue } from "@/components/shared/FilterPopover";
 import { ErrorCard, PageHeader } from "@/components/shared/PageHeader";
-import { StatCard } from "@/components/shared/StatCard";
+import { StatCard, StatsGrid } from "@/components/shared/StatCard";
+import { ToneBadge } from "@/components/shared/ToneBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { CardSkeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/api/errors";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { DrawerHeader } from "@/components/shared/DrawerHeader";
+import { cn } from "@/lib/utils";
 import type { PayrollRecord } from "@/api/office-ext.api";
 import { useOfficeUsers, usePayrollMutation, usePayrolls } from "@/hooks/useOffice";
-import { toast } from "@/stores/toast.store";
+import { pageCountOf, usePaginationState } from "@/hooks/usePaginationState";
+import { toastMutation } from "@/stores/toast.store";
+import { formatPeso } from "@/utils/format";
 
-const DEFAULT_PAGE_SIZE = 20;
+type SortKey = "newest" | "period" | "net";
+const SORT_FIRST_DIR: Record<SortKey, "asc" | "desc"> = {
+  newest: "desc",
+  period: "desc",
+  net: "desc",
+};
 
 const STATUS_OPTIONS = [
   { id: "pending", name: "Pending" },
@@ -43,37 +51,41 @@ const METHOD_OPTIONS = [
   { id: "cash", name: "Cash" },
 ];
 
-function peso(n: number): string {
-  return `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
-}
-
 /** Payroll board: owner-only. Covers staff + technician employees. */
 export function PayrollPage() {
   const [employee, setEmployee] = useState("");
   const [status, setStatus] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [search, setSearch] = useState("");
+  const { page, setPage, pageSize, setPageSize, resetPage, prevPage, nextPage } = usePaginationState();
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
 
+  const debouncedSearch = useDebouncedValue(search, 300);
+
   useEffect(() => {
-    setPage(1);
-  }, [employee, status, pageSize]);
+    resetPage();
+  }, [employee, status, pageSize, sortBy, sortDir, debouncedSearch, resetPage]);
 
   const list = usePayrolls({
     employee_user_id: employee ? Number(employee) : undefined,
     payroll_status: status || undefined,
+    search: debouncedSearch.trim() || undefined,
     page,
     limit: pageSize,
+    sort_by: sortBy,
+    sort_dir: sortDir,
   });
   const pendingCount = usePayrolls({ payroll_status: "pending", page: 1, limit: 1 });
   const approvedCount = usePayrolls({ payroll_status: "approved", page: 1, limit: 1 });
   const paidCount = usePayrolls({ payroll_status: "paid", page: 1, limit: 1 });
+  const totalCount = usePayrolls({ page: 1, limit: 1 });
   const employees = useOfficeUsers();
 
   const items = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const pageCount = pageCountOf(total, pageSize);
   const selected = items.find((p) => p.id === selectedId) ?? null;
 
   const employeeOptions = useMemo(
@@ -85,10 +97,20 @@ export function PayrollPage() {
   const employeeName = (id: number) =>
     employeeOptions.find((o) => o.id === String(id))?.name ?? `Employee #${id}`;
 
-  const filtersActive = employee !== "" || status !== "";
-  const clearFilters = () => { setEmployee(""); setStatus(""); };
+  const filtersActive = employee !== "" || status !== "" || search.trim() !== "";
+  const clearFilters = () => { setEmployee(""); setStatus(""); setSearch(""); };
 
   const columnHelper = createColumnHelper<PayrollRecord>();
+
+  const onSort = (key: Exclude<SortKey, "newest">) => {
+    if (sortBy !== key) {
+      setSortBy(key);
+      setSortDir(SORT_FIRST_DIR[key]);
+    } else {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    }
+  };
+
   const columns = useMemo(
     () => [
       columnHelper.display({
@@ -109,7 +131,9 @@ export function PayrollPage() {
       }),
       columnHelper.display({
         id: "period",
-        header: "Period",
+        header: () => (
+          <SortHeaderButton label="Period" active={sortBy === "period"} ascending={sortDir === "asc"} onSort={() => onSort("period")} />
+        ),
         cell: ({ row }) => {
           const p = row.original;
           return (
@@ -121,10 +145,12 @@ export function PayrollPage() {
       }),
       columnHelper.display({
         id: "net",
-        header: "Net pay",
+        header: () => (
+          <SortHeaderButton label="Net pay" active={sortBy === "net"} ascending={sortDir === "asc"} onSort={() => onSort("net")} />
+        ),
         cell: ({ row }) => (
           <p className="whitespace-nowrap font-technical text-sm font-semibold tabular-nums text-gray-900">
-            {peso(row.original.net_pay)}
+            {formatPeso(row.original.net_pay)}
           </p>
         ),
       }),
@@ -132,9 +158,7 @@ export function PayrollPage() {
         id: "status",
         header: "Status",
         cell: ({ row }) => (
-          <Badge variant={STATUS_TONE[row.original.status] ?? "secondary"}>
-            {row.original.status.charAt(0).toUpperCase() + row.original.status.slice(1)}
-          </Badge>
+          <ToneBadge map={STATUS_TONE} value={row.original.status} />
         ),
       }),
       columnHelper.display({
@@ -148,13 +172,14 @@ export function PayrollPage() {
       }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page, pageSize, employees.data],
+    [page, pageSize, sortBy, sortDir, employees.data],
   );
 
   const table = useReactTable({
     data: items,
     columns,
     manualPagination: true,
+    manualSorting: true,
     pageCount,
     state: { pagination: { pageIndex: page - 1, pageSize } },
     onPaginationChange: (updater) => {
@@ -168,16 +193,18 @@ export function PayrollPage() {
   return (
     <div className="min-w-0 overflow-x-clip">
       <PageHeader title="Payroll" description="Generate pay for staff and technicians, then approve and mark paid." />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard title="Pending" value={String(pendingCount.data?.total ?? "—")} icon={Clock} hint="Awaiting review" tint="warning" />
-        <StatCard title="Approved" value={String(approvedCount.data?.total ?? "—")} icon={BadgeCheck} hint="Ready to pay" tint="sky" />
-        <StatCard title="Paid" value={String(paidCount.data?.total ?? "—")} icon={Wallet} hint="Completed payouts" tint="success" />
-      </div>
+      <StatsGrid>
+        <StatCard title="Total records" value={String(totalCount.data?.total ?? "–")} icon={HandCoins} hint="All payroll runs" tint="sky" loading={totalCount.isLoading && !totalCount.data} />
+        <StatCard title="Pending" value={String(pendingCount.data?.total ?? "–")} icon={Clock} hint="Awaiting review" tint="warning" loading={pendingCount.isLoading && !pendingCount.data} />
+        <StatCard title="Approved" value={String(approvedCount.data?.total ?? "–")} icon={BadgeCheck} hint="Ready to pay" tint="teal" loading={approvedCount.isLoading && !approvedCount.data} />
+        <StatCard title="Paid" value={String(paidCount.data?.total ?? "–")} icon={Wallet} hint="Completed payouts" tint="success" loading={paidCount.isLoading && !paidCount.data} />
+      </StatsGrid>
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <SearchField value={search} onChange={setSearch} placeholder="Search employee name or email…" label="Search payroll" />
         <FilterPopover
           label="employees"
-          display={employeeName(Number(employee)) ?? "All employees"}
+          display={employee ? (employeeOptions.find((o) => o.id === employee)?.name ?? "All employees") : "All employees"}
           options={employeeOptions}
           isLoading={employees.isLoading}
           value={employee}
@@ -191,47 +218,43 @@ export function PayrollPage() {
           value={status}
           onPick={setStatus}
         />
-        <span className="flex-1" />
         <Button type="button" onClick={() => { setGenerating(true); setSelectedId(null); }}>
           <HandCoins size={16} aria-hidden="true" data-icon="inline-start" />
           Generate payroll
         </Button>
       </div>
 
-      <div className="flex min-h-[44px] items-center justify-between gap-2">
-        <p className="text-sm text-gray-600" role="status">
-          {list.data ? (
-            <>Showing <span className="font-semibold tabular-nums text-gray-900">{items.length}</span> of <span className="font-semibold tabular-nums text-gray-900">{total}</span> {total === 1 ? "record" : "records"}</>
-          ) : ("Loading payroll…")}
-        </p>
-        {filtersActive && (<Button variant="ghost" size="sm" onClick={clearFilters}>Clear</Button>)}
-      </div>
+      <ResultCount shown={items.length} total={total} noun="record" nounPlural="records" isLoading={!list.data} loadingLabel="Loading payroll…" filtersActive={filtersActive} onClear={clearFilters} />
 
       <div className="mt-1 flex min-w-0 flex-col gap-3">
         {list.isLoading && !list.data && (
-          <div aria-busy="true" aria-label="Loading payroll">{[0, 1, 2].map((i) => (<CardSkeleton key={i} />))}</div>
+          <ListLoading label="Loading payroll" />
         )}
         {list.isError && (
           <ErrorCard message={list.error instanceof Error ? list.error.message : "Could not load payroll."} onRetry={() => void list.refetch()} />
         )}
         {list.data && items.length === 0 && (
-          <EmptyState
-            title={filtersActive ? "No records match these filters" : "No payroll yet"}
-            description={filtersActive ? "Try another employee or status." : "Generate the first payroll period to get started."}
-            actionLabel={filtersActive ? "Clear filters" : "Generate payroll"}
-            onAction={filtersActive ? clearFilters : () => setGenerating(true)}
+          <FilteredEmptyState
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
+            filteredTitle="No records match these filters"
+            filteredDescription="Try another employee or status."
+            emptyTitle="No payroll yet"
+            emptyDescription="Generate the first payroll period to get started."
+            actionLabel="Generate payroll"
+            onAction={() => setGenerating(true)}
           />
         )}
         {items.length > 0 && (
           <>
-            <div className="thin-scroll relative min-w-0 overflow-x-auto rounded-lg border border-gray-200 bg-white [&::-webkit-scrollbar]:h-1.5">
+            <TableShell>
               <TableLoadingBar active={list.isFetching && items.length > 0} label="Refreshing payroll" />
-              <table className="w-full min-w-[760px] border-collapse text-left">
+              <table className={cn(TABLE_BASE, "min-w-[760px]")}>
                 <thead>
                   {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-gray-200 bg-gray-50">
+                    <tr key={hg.id} className={THEAD_ROW}>
                       {hg.headers.map((h) => (
-                        <th key={h.id} scope="col" className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <th key={h.id} scope="col" className={TH_CELL}>
                           {flexRender(h.column.columnDef.header, h.getContext())}
                         </th>
                       ))}
@@ -240,9 +263,9 @@ export function PayrollPage() {
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="border-b border-gray-100 transition-colors last:border-0 hover:bg-primary-50/60">
+                    <tr key={row.id} className={TR_ROW}>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="min-w-0 px-3 py-2.5 align-middle">
+                        <td key={cell.id} className={TD_CELL}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -250,23 +273,8 @@ export function PayrollPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <RowsSelect value={pageSize} onChange={(n) => { setPageSize(n); setPage(1); }} />
-              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                <p className="text-sm text-gray-600">
-                  Page <span className="font-semibold tabular-nums text-gray-900">{page}</span> of <span className="font-semibold tabular-nums text-gray-900">{pageCount}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" disabled={page <= 1 || list.isFetching} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Previous page">
-                    <ChevronLeft size={16} aria-hidden="true" /> Prev
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={page >= pageCount || list.isFetching} onClick={() => setPage((p) => Math.min(pageCount, p + 1))} aria-label="Next page">
-                    Next <ChevronRight size={16} aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </TableShell>
+            <PaginationFooter page={page} pageCount={pageCount} isFetching={list.isFetching} onPrev={prevPage} onNext={() => nextPage(pageCount)} pageSize={pageSize} onPageSize={setPageSize} />
           </>
         )}
       </div>
@@ -323,43 +331,42 @@ function PayrollSheet({ record, employeeName, generating, employeeOptions, onClo
   const num = (v: string) => (v.trim() === "" ? 0 : Number(v));
 
   const submitGenerate = async () => {
-    try {
-      await mutations.generate.mutateAsync({
-        employee_user_id: Number(form.employee_user_id),
-        period_start_date: form.period_start_date,
-        period_end_date: form.period_end_date,
-        payment_date: form.payment_date,
-        base_salary: num(form.base_salary),
-        overtime_pay: num(form.overtime_pay),
-        bonuses: num(form.bonuses),
-        other_earnings: num(form.other_earnings),
-        tax_withheld: num(form.tax_withheld),
-        sss_contribution: num(form.sss_contribution),
-        philhealth_contribution: num(form.philhealth_contribution),
-        pagibig_contribution: num(form.pagibig_contribution),
-        other_deductions: num(form.other_deductions),
-        notes: form.notes.trim() || null,
-      });
-      toast.success("Payroll generated.", "Commission was computed from completed jobs.");
-      onClose();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not generate payroll.");
-    }
+    const generated = await toastMutation(() => mutations.generate.mutateAsync({
+      employee_user_id: Number(form.employee_user_id),
+      period_start_date: form.period_start_date,
+      period_end_date: form.period_end_date,
+      payment_date: form.payment_date,
+      base_salary: num(form.base_salary),
+      overtime_pay: num(form.overtime_pay),
+      bonuses: num(form.bonuses),
+      other_earnings: num(form.other_earnings),
+      tax_withheld: num(form.tax_withheld),
+      sss_contribution: num(form.sss_contribution),
+      philhealth_contribution: num(form.philhealth_contribution),
+      pagibig_contribution: num(form.pagibig_contribution),
+      other_deductions: num(form.other_deductions),
+      notes: form.notes.trim() || null,
+    }), {
+      success: "Payroll generated.",
+      successDetail: "Commission was computed from completed jobs.",
+      error: "Could not generate payroll.",
+    });
+    if (generated === null) return;
+    onClose();
   };
 
   const transition = async (action: "approve" | "pay" | "cancel") => {
     if (!record) return;
-    try {
-      await mutations.transition.mutateAsync({
-        id: record.id,
-        action,
-        payment_method: action === "pay" ? method : null,
-      });
-      toast.success(action === "pay" ? "Marked as paid." : action === "approve" ? "Payroll approved." : "Payroll cancelled.");
-      onClose();
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Action failed.");
-    }
+    const done = await toastMutation(() => mutations.transition.mutateAsync({
+      id: record.id,
+      action,
+      payment_method: action === "pay" ? method : null,
+    }), {
+      success: action === "pay" ? "Marked as paid." : action === "approve" ? "Payroll approved." : "Payroll cancelled.",
+      error: "Action failed.",
+    });
+    if (done === null) return;
+    onClose();
   };
 
   const validGenerate =
@@ -369,10 +376,9 @@ function PayrollSheet({ record, employeeName, generating, employeeOptions, onClo
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent label={generating ? "Generate payroll" : "Payroll detail"} side="right" onClose={onClose} className="w-[440px] max-w-[94vw] overflow-y-auto p-6">
-        <SheetTitle className="text-lg font-semibold text-gray-900">
-          {generating ? "Generate payroll" : `${employeeName}`}
-        </SheetTitle>
+      <SheetContent label={generating ? "Generate payroll" : "Payroll detail"} side="right" onClose={onClose} className="w-[440px] max-w-[94vw] p-0">
+        <DrawerHeader title={generating ? "Generate payroll" : employeeName} onClose={onClose} />
+        <div className="thin-scroll flex-1 overflow-y-auto p-6">
         {generating ? (
           <div className="mt-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -431,19 +437,17 @@ function PayrollSheet({ record, employeeName, generating, employeeOptions, onClo
         ) : record ? (
           <div className="mt-4 flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant={STATUS_TONE[record.status] ?? "secondary"}>
-                {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-              </Badge>
+              <ToneBadge map={STATUS_TONE} value={record.status} />
               {record.payment_method && <Badge variant="secondary">{METHOD_OPTIONS.find((m) => m.id === record.payment_method)?.name ?? record.payment_method}</Badge>}
             </div>
             <dl className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3 text-sm">
               <div className="flex justify-between gap-2"><dt className="text-gray-600">Period</dt><dd className="font-technical tabular-nums text-gray-900">{record.period_start_date} → {record.period_end_date}</dd></div>
               <div className="flex justify-between gap-2"><dt className="text-gray-600">Pay date</dt><dd className="font-technical tabular-nums text-gray-900">{record.payment_date}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-gray-600">Base salary</dt><dd className="font-technical tabular-nums text-gray-900">{peso(record.base_salary)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-gray-600">Commission</dt><dd className="font-technical tabular-nums text-gray-900">{peso(record.commission)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-gray-600">Total earnings</dt><dd className="font-technical tabular-nums text-gray-900">{peso(record.total_earnings)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-gray-600">Total deductions</dt><dd className="font-technical tabular-nums text-gray-900">{peso(record.total_deductions)}</dd></div>
-              <div className="flex justify-between gap-2 border-t border-gray-100 pt-2"><dt className="font-semibold text-gray-900">Net pay</dt><dd className="font-technical font-semibold tabular-nums text-gray-900">{peso(record.net_pay)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-gray-600">Base salary</dt><dd className="font-technical tabular-nums text-gray-900">{formatPeso(record.base_salary)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-gray-600">Commission</dt><dd className="font-technical tabular-nums text-gray-900">{formatPeso(record.commission)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-gray-600">Total earnings</dt><dd className="font-technical tabular-nums text-gray-900">{formatPeso(record.total_earnings)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-gray-600">Total deductions</dt><dd className="font-technical tabular-nums text-gray-900">{formatPeso(record.total_deductions)}</dd></div>
+              <div className="flex justify-between gap-2 border-t border-gray-100 pt-2"><dt className="font-semibold text-gray-900">Net pay</dt><dd className="font-technical font-semibold tabular-nums text-gray-900">{formatPeso(record.net_pay)}</dd></div>
             </dl>
             {record.status === "pending" && (
               <div className="flex gap-2">
@@ -491,11 +495,12 @@ function PayrollSheet({ record, employeeName, generating, employeeOptions, onClo
               </p>
             )}
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <Search size={12} aria-hidden="true" />
+              <Info size={12} aria-hidden="true" />
               Full earnings breakdown (overtime, bonuses) is server-computed; payslip export ships later.
             </div>
           </div>
         ) : null}
+        </div>
       </SheetContent>
     </Sheet>
   );

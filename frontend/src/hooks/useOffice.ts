@@ -24,7 +24,6 @@ export const officeKeys = {
   refunds: (status?: string) => ["office", "refunds", status ?? "all"] as const,
   audit: (params: string) => ["office", "audit", params] as const,
   bookings: (params: string) => ["office", "bookings", params] as const,
-  vacancy: (from: string, to: string) => ["office", "vacancy", from, to] as const,
   waitlist: (day: string) => ["office", "waitlist", day] as const,
   roster: ["office", "roster"] as const,
   adminSettings: ["office", "settings"] as const,
@@ -108,16 +107,25 @@ export function useRefundMutation() {
       }) => refundsApi.review(id, payload),
       onSuccess: invalidate,
     }),
+    complete: useMutation({
+      mutationFn: ({ id, form }: { id: number; form: FormData }) =>
+        refundsApi.complete(id, form),
+      onSuccess: invalidate,
+    }),
   };
 }
 
-export function useAdminBookings(params: AdminBookingParams) {
+export function useAdminBookings(params: AdminBookingParams, opts?: { enabled?: boolean }) {
   const key = JSON.stringify(params);
   return useQuery({
     queryKey: officeKeys.bookings(key),
     queryFn: () => bookingApi.adminList({ ...params, limit: params.limit ?? 50 }),
     // A 404 means the endpoint doesn't exist yet — retrying can never help.
-    retry: (count, err) => !(err instanceof ApiError) || (err.status !== 404 && count < 2),
+    // A 422 means request validation failed (e.g. limit over the backend max) —
+    // also permanent, so don't spam the server log with retries.
+    retry: (count, err) =>
+      !(err instanceof ApiError) || (err.status !== 404 && err.status !== 422 && count < 2),
+    enabled: opts?.enabled ?? true,
   });
 }
 
@@ -144,8 +152,8 @@ export function useBookingMutation() {
       onSuccess: invalidate,
     }),
     cancel: useMutation({
-      mutationFn: ({ id, reason }: { id: number; reason: string }) =>
-        bookingApi.adminCancel(id, reason),
+      mutationFn: ({ id, reason, refundTo }: { id: number; reason: string; refundTo?: { number: string; name: string } }) =>
+        bookingApi.adminCancel(id, reason, refundTo),
       onSuccess: invalidate,
     }),
     setSlot: useMutation({
@@ -197,15 +205,6 @@ export function useAuditLogs(params: { table_name?: string; action?: string; use
     queryFn: () => auditApi.list({ ...params, limit: params.limit ?? 20 }),
     // Hold the previous page while the next loads — rows never flash empty.
     placeholderData: keepPreviousData,
-  });
-}
-
-export function useVacancy(from: string, to: string) {
-  return useQuery({
-    queryKey: officeKeys.vacancy(from, to),
-    queryFn: () => bookingApi.vacancy(from, to),
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -292,6 +291,8 @@ export interface InventoryParams {
   low_stock?: boolean;
   page?: number;
   limit?: number;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
 }
 
 export function useInventory(params: InventoryParams) {
@@ -305,6 +306,8 @@ export function useInventory(params: InventoryParams) {
         low_stock: params.low_stock || undefined,
         page: params.page ?? 1,
         limit: params.limit ?? 20,
+        sort_by: params.sort_by ?? "newest",
+        sort_dir: params.sort_dir ?? "desc",
       }),
     placeholderData: keepPreviousData,
   });
@@ -355,8 +358,11 @@ export function useMovements(itemId: number | null, page = 1, limit = 20) {
 export interface PayrollParams {
   employee_user_id?: number;
   payroll_status?: string;
+  search?: string;
   page?: number;
   limit?: number;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
 }
 
 export function usePayrolls(params: PayrollParams, enabled = true) {
@@ -367,8 +373,11 @@ export function usePayrolls(params: PayrollParams, enabled = true) {
       payrollApi.list({
         employee_user_id: params.employee_user_id,
         payroll_status: params.payroll_status || undefined,
+        search: params.search?.trim() || undefined,
         page: params.page ?? 1,
         limit: params.limit ?? 20,
+        sort_by: params.sort_by ?? "newest",
+        sort_dir: params.sort_dir ?? "desc",
       }),
     placeholderData: keepPreviousData,
     enabled,

@@ -35,6 +35,11 @@ export const contentApi = {
       const map = new Map(data.map((r) => [r.setting_key, coerce(r)]));
       const get = <T,>(key: string, fallback: T): T =>
         (map.get(key) as T | undefined) ?? fallback;
+      // business_open_days is stored as Mon–Sun 1/0; normalize to booleans.
+      const rawDays = get<unknown>("business_open_days", null);
+      const openDays = Array.isArray(rawDays)
+        ? rawDays.slice(0, 7).map((d) => d === 1 || d === true)
+        : LANDING_DEFAULTS.business_open_days;
       return {
         hero_title: get("hero_title", LANDING_DEFAULTS.hero_title),
         hero_description: get(
@@ -44,17 +49,34 @@ export const contentApi = {
         about_text: get("about_text", LANDING_DEFAULTS.about_text),
         mission_text: get("mission_text", LANDING_DEFAULTS.mission_text),
         vision_text: get("vision_text", LANDING_DEFAULTS.vision_text),
-        contact_phone: get("contact_phone", LANDING_DEFAULTS.contact_phone),
+        contact_phone: get("business_phone", LANDING_DEFAULTS.contact_phone),
         contact_phone_secondary: get(
           "contact_phone_secondary",
           LANDING_DEFAULTS.contact_phone_secondary,
         ),
-        contact_email: get("contact_email", LANDING_DEFAULTS.contact_email),
+        contact_email: get("business_email", LANDING_DEFAULTS.contact_email),
         contact_address: get(
           "contact_address",
           LANDING_DEFAULTS.contact_address,
         ),
         business_hours: get("business_hours", LANDING_DEFAULTS.business_hours),
+        business_open_days: openDays,
+        business_open_time: get(
+          "business_open_time",
+          LANDING_DEFAULTS.business_open_time,
+        ),
+        business_close_time: get(
+          "business_close_time",
+          LANDING_DEFAULTS.business_close_time,
+        ),
+        gcash_account_number: get(
+          "gcash_account_number",
+          LANDING_DEFAULTS.gcash_account_number,
+        ),
+        gcash_account_name: get(
+          "gcash_account_name",
+          LANDING_DEFAULTS.gcash_account_name,
+        ),
         facebook_url: get("facebook_url", LANDING_DEFAULTS.facebook_url),
         announcement_text: get(
           "announcement_text",

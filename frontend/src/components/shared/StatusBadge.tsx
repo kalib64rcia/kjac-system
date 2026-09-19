@@ -5,18 +5,18 @@ const TONES: Record<
   BookingStatus,
   "default" | "success" | "warning" | "destructive" | "secondary" | "info" | "teal" | "slate"
 > = {
-  submitted: "warning", // Yellow/Gold
-  proposed: "warning", // Orange (using warning tone)
-  scheduled: "info", // Blue
-  confirmed: "success", // Green
-  assigned: "teal", // Teal/Cyan
-  ongoing: "slate", // Violet/Purple (using slate for now, may need custom)
-  completed: "secondary", // Gray
-  cancelled: "destructive", // Red
-  expired: "destructive", // Red
-  rescheduled: "slate",
+  submitted: "slate",
+  proposed: "warning",
+  scheduled: "info",
+  confirmed: "success",
+  assigned: "teal",
+  ongoing: "default",
+  completed: "secondary",
+  cancelled: "destructive",
+  expired: "secondary",
+  rescheduled: "secondary",
   alternative_proposed: "warning",
-  awaiting_payment: "warning",
+  awaiting_payment: "slate",
 };
 
 const LABELS: Record<BookingStatus, string> = {
@@ -31,7 +31,7 @@ const LABELS: Record<BookingStatus, string> = {
   expired: "Expired",
   rescheduled: "Rescheduled",
   alternative_proposed: "Alternative",
-  awaiting_payment: "Awaiting Payment",
+  awaiting_payment: "Awaiting Payment legacy",
 };
 
 /** Unified status display (COMPONENT_INVENTORY.md StatusBadge). */

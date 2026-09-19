@@ -3,15 +3,12 @@ import type {
   AdminBookingList,
   AdminBookingParams,
   AdminSetting,
-  AvailabilityResponse,
   BookingCreate,
   BookingResponse,
   CancelResponse,
   ReminderRunResult,
   RosterTech,
-  SlotHold,
   TrackBookingResponse,
-  VacancyResponse,
   WaitlistEntry,
   WaitlistOfferResult,
 } from "@/types/booking.types";
@@ -20,23 +17,6 @@ import type { PaymentResponse } from "@/types/catalog.types";
 export const bookingApi = {
   create: (payload: BookingCreate) =>
     api.post<BookingResponse>("/bookings", payload).then((r) => r.data),
-
-  /** Public: day-by-day slot states (open/low/full/closed — never counts). */
-  availability: (from: string, to: string) =>
-    api
-      .get<AvailabilityResponse>("/slots/availability", {
-        params: { date_from: from, date_to: to },
-      })
-      .then((r) => r.data),
-
-  /** Public: hold one seat while the guest types (10-min life). */
-  createHold: (date: string, time: string) =>
-    api
-      .post<SlotHold>("/slots/holds", {
-        preferred_date: date,
-        preferred_time: time,
-      })
-      .then((r) => r.data),
 
   track: (referenceId: string, email: string) =>
     api
@@ -54,15 +34,24 @@ export const bookingApi = {
       })
       .then((r) => r.data),
 
-  cancel: (bookingId: number, reason: string, email?: string) =>
+  cancel: (bookingId: number, reason: string, email?: string, refundTo?: { number?: string; name?: string }) =>
     api
-      .post<CancelResponse>(`/bookings/${bookingId}/cancel`, { reason, email })
+      .post<CancelResponse>(`/bookings/${bookingId}/cancel`, {
+        reason,
+        email,
+        refund_to_number: refundTo?.number ?? undefined,
+        refund_to_name: refundTo?.name ?? undefined,
+      })
       .then((r) => r.data),
 
   /** Office: staff cancel (no ownership check; the audit stamp records who). */
-  adminCancel: (bookingId: number, reason: string) =>
+  adminCancel: (bookingId: number, reason: string, refundTo?: { number?: string; name?: string }) =>
     api
-      .post<CancelResponse>(`/admin/bookings/${bookingId}/cancel`, { reason })
+      .post<CancelResponse>(`/admin/bookings/${bookingId}/cancel`, {
+        reason,
+        refund_to_number: refundTo?.number ?? undefined,
+        refund_to_name: refundTo?.name ?? undefined,
+      })
       .then((r) => r.data),
 
   /** Office: dispatch list (contract — backend ships the endpoint next). */
@@ -78,7 +67,7 @@ export const bookingApi = {
       )
       .then((r) => r.data),
 
-  /** Office: place a confirmed booking on schedule (transitions to 'scheduled' status). */
+  /** Office: propose schedule for a submitted booking (transitions to 'proposed' status). */
   schedule: (bookingId: number, date: string, startTime: string, durationMinutes?: number) =>
     api
       .post<{ booking_id: number; status: string; scheduled_at: string; preferred_date: string; preferred_time: string }>(
@@ -87,7 +76,7 @@ export const bookingApi = {
       )
       .then((r) => r.data),
 
-  /** Office: remove booking from schedule (scheduled → confirmed). */
+  /** Office: remove booking from schedule (proposed/scheduled to submitted). */
   unschedule: (bookingId: number) =>
     api
       .delete<{ success: boolean }>(`/bookings/${bookingId}/schedule`)
@@ -119,14 +108,6 @@ export const bookingApi = {
   reviewReschedule: (requestId: number, action: "approve" | "deny", admin_notes?: string) =>
     api
       .patch(`/admin/reschedule/${requestId}/review`, { action, admin_notes })
-      .then((r) => r.data),
-
-  /** Office: vacancy grid — states plus the numbers behind them. */
-  vacancy: (from: string, to: string) =>
-    api
-      .get<VacancyResponse>("/admin/slots/vacancy", {
-        params: { date_from: from, date_to: to },
-      })
       .then((r) => r.data),
 
   /** Office: waitlist for one day (waiting + offered, in line order). */
